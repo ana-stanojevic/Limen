@@ -32,7 +32,7 @@ Agentic behavior is introduced incrementally and remains constrained by explicit
 
 # Architecture 
 
-Iterations will introduce:
+Iterations introduce:
 
 - multi-agent orchestration,
 - memory systems,
