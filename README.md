@@ -1,4 +1,4 @@
-# Liman
+# Limen
 
 > Navigate your professional life with clarity.
 
