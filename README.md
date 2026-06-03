@@ -93,20 +93,10 @@ Output:
 ## Repository Structure
 
 ```txt
-docs/
-modules/
+docs/ 
+modules/  
   bounded-application-workflow/
 ```
-
----
-
-## Current Status
-
-- product foundation
-- MVP planning
-- architecture definition
-- execution pipeline design
-- infrastructure preparation
 
 ---
 
