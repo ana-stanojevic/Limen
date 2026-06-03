@@ -43,5 +43,4 @@ Core product and architecture documentation lives in the root documentation fold
 - [`../../docs/PRD.md`](../../docs/PRD.md)
 - [`../../docs/ARCHITECTURE.md`](../../docs/ARCHITECTURE.md)
 - [`../../docs/ROADMAP.md`](../../docs/ROADMAP.md)
-- [`../../docs/DECISIONS.md`](../../docs/DECISIONS.md)
 
