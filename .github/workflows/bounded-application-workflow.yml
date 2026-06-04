@@ -1,0 +1,51 @@
+name: Bounded Application Workflow CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "modules/bounded-application-workflow/**"
+      - ".github/workflows/bounded-application-workflow.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "modules/bounded-application-workflow/**"
+      - ".github/workflows/bounded-application-workflow.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: modules/bounded-application-workflow
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: 2.4.1
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+          installer-parallel: true
+
+      - name: Load cached dependencies
+        id: cached-poetry-dependencies
+        uses: actions/cache@v4
+        with:
+          path: modules/bounded-application-workflow/.venv
+          key: venv-${{ runner.os }}-${{ hashFiles('modules/bounded-application-workflow/poetry.lock') }}
+
+      - name: Install dependencies
+        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+        run: poetry install --no-interaction --no-ansi
+
+      - name: Run tests
+        run: poetry run pytest
