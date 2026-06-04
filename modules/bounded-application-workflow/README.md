@@ -19,16 +19,24 @@ This module is designed to help users decide whether an opportunity should be:
 
 ## Current Milestone
 
-Milestone 1 focuses on building the first working evaluation engine.
+**Milestone 1 — Bounded Application Workflow MVP** — completed.
 
-Implementation scope:
+The first executable evaluation engine is in place: input/output contract, job description parsing, profile matching, decision policy, runtime API, tests, and CI.
 
-1. input/output contract
-2. job description parsing
-3. profile matching
-4. decision policy
-5. runtime API
-6. tests and CI
+**Milestone 2 — Signal Extraction** — in progress.
+
+Improve structured extraction from job descriptions and user profiles.
+
+Focus:
+
+- required skills
+- preferred skills
+- seniority signals
+- production expectations
+- ambiguity and risk indicators
+- missing signals
+
+See the full roadmap: [`../../docs/ROADMAP.md`](../../docs/ROADMAP.md).
 
 ## System Boundary
 
