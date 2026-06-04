@@ -100,25 +100,26 @@ modules/
 
 ---
 
-## Milestone 1 — Bounded Application Workflow MVP
+## Current Milestone
 
-Goal:
+**Milestone 1 — Bounded Application Workflow MVP** — completed.
 
-Evaluate opportunities against a user profile and decide whether the system should:
+The first executable evaluation engine is in place: input/output contract, job description parsing, profile matching, decision policy, runtime API, tests, and CI. The module runs locally, opportunities can be evaluated via the API, and the decision policy is covered by tests.
 
-- prepare
-- queue
-- skip
-- escalate
+**Milestone 2 — Signal Extraction** — in progress.
 
-Current implementation focus:
+Improve structured extraction from job descriptions and user profiles.
 
-1. input/output contract
-2. job description parsing
-3. profile matching
-4. decision policy
-5. runtime API
-6. tests and CI
+Focus:
+
+- required skills
+- preferred skills
+- seniority signals
+- production expectations
+- ambiguity and risk indicators
+- missing signals
+
+See the full roadmap: [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 ---
 
