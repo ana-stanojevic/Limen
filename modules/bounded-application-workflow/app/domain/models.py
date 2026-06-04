@@ -30,6 +30,16 @@ class JobDescription(BaseModel):
     employment_type: Optional[str] = None
 
 
+class ProfileMatchResult(BaseModel):
+    score: float = Field(ge=0.0, le=1.0)
+    required_skills_matched: List[str] = Field(default_factory=list)
+    required_skills_missing: List[str] = Field(default_factory=list)
+    nice_to_have_skills_matched: List[str] = Field(default_factory=list)
+    role_aligned: bool = False
+    reasons: List[str] = Field(default_factory=list)
+    risks: List[str] = Field(default_factory=list)
+
+
 class WorkflowInput(BaseModel):
     user_profile: UserProfile
     job_description: JobDescription
