@@ -51,6 +51,14 @@ Run tests:
 poetry run pytest
 ```
 
+## CI
+
+GitHub Actions runs `poetry run pytest` on pushes and pull requests to `main` when this module changes.
+
+Workflow: [`.github/workflows/bounded-application-workflow.yml`](../../.github/workflows/bounded-application-workflow.yml)
+
+Python versions tested in CI: 3.11, 3.12, 3.13.
+
 - `GET /health` — liveness check
 - `POST /workflow/run` — evaluate a `WorkflowInput` and return `WorkflowOutput`
 

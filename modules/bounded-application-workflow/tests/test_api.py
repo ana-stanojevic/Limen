@@ -31,6 +31,20 @@ def test_run_workflow_returns_structured_output():
     assert body["recommended_next_steps"]
 
 
+def test_run_workflow_ambiguous_match_escalates():
+    fixture = load_fixture("ambiguous_match.json")
+    response = client.post(
+        "/workflow/run",
+        json={
+            "user_profile": fixture["user_profile"],
+            "job_description": fixture["job_description"],
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["decision"]["decision"] == DecisionType.ESCALATE.value
+
+
 def test_run_workflow_weak_match_skips():
     fixture = load_fixture("weak_match.json")
     response = client.post(
