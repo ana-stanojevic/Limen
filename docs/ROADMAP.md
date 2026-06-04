@@ -61,3 +61,102 @@ Focus:
 - paste job description
 - evaluate opportunity
 - show score, decision, missing signals, risks, and reasoning summary
+
+# Milestone 5 — Evaluation & Reliability
+
+Build confidence that workflow decisions are consistent, observable, and measurable.
+
+## Goal
+
+Move from a working prototype to an engineering-grade AI system.
+
+The system should not only produce decisions, but also provide evidence that those decisions are reliable.
+
+## Focus
+
+### Evaluation Dataset
+
+Create a benchmark set of job opportunities with expected outcomes.
+
+Examples:
+
+- strong fit → PREPARE
+- uncertain fit → ESCALATE
+- weak fit → SKIP
+- later opportunity → QUEUE
+
+### Automated Evaluation
+
+Measure decision quality against benchmark data.
+
+Track:
+
+- decision accuracy
+- false positives
+- false negatives
+- escalation rate
+
+### Structured Outputs
+
+Ensure all AI-generated outputs follow validated schemas.
+
+Examples:
+
+- extracted signals
+- risk indicators
+- opportunity summaries
+- workflow decisions
+
+### Prompt Versioning
+
+Treat prompts as production assets.
+
+Track:
+
+- prompt versions
+- changes
+- evaluation results per version
+
+### Observability
+
+Make workflow execution transparent.
+
+Capture:
+
+- execution traces
+- workflow state transitions
+- model responses
+- decision rationale
+- failure events
+
+### Reliability Testing
+
+Evaluate behavior under difficult conditions.
+
+Examples:
+
+- incomplete job descriptions
+- contradictory requirements
+- missing user information
+- malformed inputs
+
+### Benchmark Reports
+
+Generate evaluation reports after major changes.
+
+Report:
+
+- benchmark results
+- decision distribution
+- regression detection
+- notable failures
+
+## Done When
+
+- benchmark dataset exists
+- evaluation can run automatically
+- all outputs are schema validated
+- workflow execution is observable
+- prompt changes are measurable
+- regressions are detectable before deployment
+
