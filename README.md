@@ -2,7 +2,7 @@
 
 > Navigate your professional life with clarity.
 
-Liman is a career platform designed to support people throughout their professional lives — across opportunities, applications, learning, growth, transitions, and long-term direction.
+Limen is a career platform designed to support people throughout their professional lives — across opportunities, applications, learning, growth, transitions, and long-term direction.
 
 ---
 
