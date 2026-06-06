@@ -34,6 +34,8 @@ def test_extract_job_signals_from_fixture():
 
     assert signals.required_skills == expected["required_skills"]
     assert signals.preferred_skills == expected["preferred_skills"]
+    assert signals.seniority_signals == expected["seniority_signals"]
+    assert signals.production_expectations == expected["production_expectations"]
 
 
 def test_extract_job_signals_from_parsed_description():
@@ -52,6 +54,12 @@ def test_extract_job_signals_from_parsed_description():
         "research background",
         "startup experience",
     ]
+    assert signals.seniority_signals == [
+        "mid-senior",
+        "product ownership",
+        "own LLM-based product workflows",
+    ]
+    assert signals.production_expectations == []
 
 
 def test_extract_job_signals_deduplicates_skills():
@@ -109,3 +117,51 @@ def test_extract_job_signals_returns_job_signals_model():
     assert signals.production_expectations == []
     assert signals.risk_indicators == []
     assert signals.missing_signals == []
+
+
+def test_extract_job_signals_detects_years_of_experience():
+    job = JobDescription(
+        title="Senior AI Engineer",
+        description="Looking for 5+ years of experience building ML systems.",
+        required_skills=[],
+        nice_to_have_skills=[],
+        seniority=None,
+    )
+
+    signals = extract_job_signals(job)
+
+    assert signals.seniority_signals == ["5+ years of experience", "Senior"]
+
+
+def test_extract_job_signals_detects_production_expectations():
+    job = JobDescription(
+        title="Platform Engineer",
+        description=(
+            "Operate large-scale inference systems with on-call rotation "
+            "and production-ready deployment practices."
+        ),
+        required_skills=[],
+        nice_to_have_skills=[],
+    )
+
+    signals = extract_job_signals(job)
+
+    assert signals.production_expectations == [
+        "on-call rotation",
+        "large-scale inference",
+        "production readiness",
+    ]
+
+
+def test_extract_job_signals_deduplicates_seniority_signals():
+    job = JobDescription(
+        title="Senior Engineer",
+        description="Senior engineer with 3-5 years experience. Senior team lead.",
+        required_skills=[],
+        nice_to_have_skills=[],
+        seniority="senior",
+    )
+
+    signals = extract_job_signals(job)
+
+    assert signals.seniority_signals == ["senior", "3-5 years", "team lead"]

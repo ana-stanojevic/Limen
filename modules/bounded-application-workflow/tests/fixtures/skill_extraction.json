@@ -29,6 +29,12 @@
     "preferred_skills": [
       "research background",
       "startup experience"
-    ]
+    ],
+    "seniority_signals": [
+      "mid-senior",
+      "product ownership",
+      "own LLM-based product workflows"
+    ],
+    "production_expectations": []
   }
 }
