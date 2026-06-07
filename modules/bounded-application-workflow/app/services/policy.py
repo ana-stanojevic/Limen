@@ -49,8 +49,16 @@ def decision_from_score(score: float) -> DecisionType:
     return DecisionType.SKIP
 
 
-def decision_from_signals(score: float, signals: JobSignals) -> DecisionType:
+def decision_from_signals(
+    score: float,
+    signals: JobSignals,
+    *,
+    severe_seniority_mismatch: bool = False,
+) -> DecisionType:
     """Map match score to a decision, then apply job-signal guardrails."""
+    if severe_seniority_mismatch:
+        return DecisionType.SKIP
+
     base = decision_from_score(score)
 
     # Risky postings require human review even when the profile match is strong.
@@ -102,7 +110,11 @@ def build_workflow_decision(
     signals: JobSignals,
 ) -> WorkflowDecision:
     return WorkflowDecision(
-        decision=decision_from_signals(match.score, signals),
+        decision=decision_from_signals(
+            match.score,
+            signals,
+            severe_seniority_mismatch=match.severe_seniority_mismatch,
+        ),
         score=match.score,
         reasons=list(match.reasons),
         risks=list(match.risks) + _risks_from_signals(signals),

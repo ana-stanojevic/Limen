@@ -108,10 +108,31 @@ def test_overqualified_profile_flags_poor_seniority_fit():
 
     result = match_profile_to_job(profile, job, signals)
 
+    assert result.severe_seniority_mismatch
     assert not any(
         "Seniority meets job expectations" in reason for reason in result.reasons
     )
     assert any(
         "exceeds job expectations by more than one level" in risk
         for risk in result.risks
+    )
+
+
+def test_underqualified_profile_flags_severe_seniority_gap():
+    profile = UserProfile(name="Ana", seniority="junior")
+    job = JobDescription(
+        title="Principal Engineer",
+        description="Lead platform architecture.\n\n- Python",
+        seniority="principal",
+    )
+    signals = JobSignals(
+        required_skills=["Python"],
+        seniority_signals=["principal"],
+    )
+
+    result = match_profile_to_job(profile, job, signals)
+
+    assert result.severe_seniority_mismatch
+    assert any(
+        "more than one level below job expectations" in risk for risk in result.risks
     )

@@ -6,6 +6,7 @@ from app.domain.models import (
     JobDescription,
     ProfileMatchResult,
     UserProfile,
+    WorkflowInput,
 )
 from app.services.extractor import extract_job_signals
 from app.services.policy import (
@@ -39,6 +40,15 @@ def test_decision_from_signals_escalates_when_risk_indicators_present():
 
     assert decision_from_signals(0.9, signals) == DecisionType.ESCALATE
     assert decision_from_signals(0.9, JobSignals()) == DecisionType.PREPARE
+
+
+def test_decision_from_signals_skips_on_severe_seniority_mismatch():
+    signals = JobSignals(risk_indicators=["ambiguous scope"])
+
+    assert (
+        decision_from_signals(0.9, signals, severe_seniority_mismatch=True)
+        == DecisionType.SKIP
+    )
 
 
 def test_build_workflow_decision_carries_match_and_job_signals():
@@ -130,6 +140,27 @@ def test_evaluate_workflow_strong_match_uses_score_policy():
     assert any(
         "salary range" in item for item in output.decision.missing_information
     )
+
+
+def test_evaluate_workflow_severe_seniority_gap_skips():
+    profile = UserProfile(
+        name="Ana",
+        skills=["Python"],
+        seniority="staff",
+        experience_summary="Platform leadership background.",
+        target_roles=["Engineer"],
+    )
+    job = JobDescription(
+        title="Junior Engineer",
+        description="Build features.\n\n- Python",
+        seniority="junior",
+    )
+
+    output = evaluate_workflow(
+        WorkflowInput(user_profile=profile, job_description=job)
+    )
+
+    assert output.decision.decision == DecisionType.SKIP
 
 
 def test_evaluate_workflow_risk_fixture_signals_flow_into_decision():

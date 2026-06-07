@@ -178,19 +178,20 @@ def _assess_seniority_alignment(
     profile: UserProfile,
     job: JobDescription,
     signals: JobSignals,
-) -> tuple[list[str], list[str]]:
+) -> tuple[list[str], list[str], bool]:
     reasons: list[str] = []
     risks: list[str] = []
+    severe_mismatch = False
 
     job_seniority = _primary_job_seniority(job, signals)
     if not job_seniority:
-        return reasons, risks
+        return reasons, risks, severe_mismatch
 
     if not profile.seniority:
         risks.append(
             "Profile seniority is not specified; cannot verify alignment with job."
         )
-        return reasons, risks
+        return reasons, risks, severe_mismatch
 
     profile_rank = _seniority_rank(profile.seniority)
     job_rank = _seniority_rank(job_seniority)
@@ -198,22 +199,30 @@ def _assess_seniority_alignment(
     if profile_rank is not None and job_rank is not None:
         rank_gap = profile_rank - job_rank
 
-        if rank_gap < 0:
+        if rank_gap <= -2:
+            severe_mismatch = True
+            risks.append(
+                "Profile seniority is more than one level below job expectations "
+                f"(job: {job_seniority}, profile: {profile.seniority}); "
+                "this role is not a realistic fit."
+            )
+        elif rank_gap == -1:
             risks.append(
                 f"Job expects {job_seniority}; profile indicates {profile.seniority}."
             )
         elif rank_gap >= 2:
+            severe_mismatch = True
             risks.append(
                 "Profile seniority exceeds job expectations by more than one level "
                 f"(job: {job_seniority}, profile: {profile.seniority}); "
-                "this role may be a poor fit."
+                "this role is not a realistic fit."
             )
         else:
             reasons.append(
                 "Seniority meets job expectations "
                 f"(job: {job_seniority}, profile: {profile.seniority})."
             )
-        return reasons, risks
+        return reasons, risks, severe_mismatch
 
     profile_normalized = _normalize_seniority(profile.seniority)
     job_normalized = _normalize_seniority(job_seniority)
@@ -227,7 +236,7 @@ def _assess_seniority_alignment(
             f"Job expects {job_seniority}; profile indicates {profile.seniority}."
         )
 
-    return reasons, risks
+    return reasons, risks, severe_mismatch
 
 
 def match_profile_to_job(
@@ -282,8 +291,8 @@ def match_profile_to_job(
             f"Missing required skills: {', '.join(required_missing)}."
         )
 
-    seniority_reasons, seniority_risks = _assess_seniority_alignment(
-        user_profile, job_description, signals
+    seniority_reasons, seniority_risks, severe_seniority_mismatch = (
+        _assess_seniority_alignment(user_profile, job_description, signals)
     )
     reasons.extend(seniority_reasons)
     risks.extend(seniority_risks)
@@ -294,6 +303,7 @@ def match_profile_to_job(
         required_skills_missing=required_missing,
         preferred_skills_matched=preferred_matched,
         role_aligned=role_aligned,
+        severe_seniority_mismatch=severe_seniority_mismatch,
         reasons=reasons,
         risks=risks,
     )

@@ -38,6 +38,7 @@ class ProfileMatchResult(BaseModel):
     required_skills_missing: List[str] = Field(default_factory=list)
     preferred_skills_matched: List[str] = Field(default_factory=list)
     role_aligned: bool = False
+    severe_seniority_mismatch: bool = False
     reasons: List[str] = Field(default_factory=list)
     risks: List[str] = Field(default_factory=list)
 
