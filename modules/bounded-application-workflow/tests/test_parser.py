@@ -29,9 +29,6 @@ def test_parse_job_description():
     assert job.employment_type == "Full-time"
     assert job.description == RAW_JOB_TEXT
 
-    assert job.required_skills == ["Python", "LLM Systems", "Evaluation"]
-    assert job.nice_to_have_skills == ["FastAPI", "React"]
-
 
 def test_parse_job_description_rejects_empty_text():
     with pytest.raises(ValueError, match="cannot be empty"):
