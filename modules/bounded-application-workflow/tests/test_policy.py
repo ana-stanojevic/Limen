@@ -46,7 +46,7 @@ def test_build_workflow_decision_carries_match_and_job_signals():
     match = ProfileMatchResult(
         score=0.82,
         reasons=["Strong skill overlap", "Seniority meets job expectations (job: senior, profile: senior)."],
-        risks=["Job title or description does not clearly align with target roles."],
+        risks=[],
         required_skills_missing=["Kubernetes"],
     )
     signals = JobSignals(
@@ -66,6 +66,8 @@ def test_build_workflow_decision_carries_match_and_job_signals():
     assert any("on-call rotation" in risk for risk in decision.risks)
     assert any("Kubernetes" in item for item in decision.missing_information)
     assert any("remote policy" in item for item in decision.missing_information)
+    assert any("no target roles" in item for item in decision.missing_information)
+    assert not any("target roles" in risk for risk in decision.risks)
 
 
 @pytest.mark.parametrize(

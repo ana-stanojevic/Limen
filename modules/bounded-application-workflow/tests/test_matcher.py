@@ -41,15 +41,16 @@ def test_strong_match_covers_core_required_skills():
 
 
 def test_weak_match_misses_frontend_stack():
-    workflow = load_workflow_input("weak_match.json")
-    signals = extract_job_signals(workflow.job_description)
-    result = match_profile_to_job(
-        workflow.user_profile, workflow.job_description, signals
-    )
+    result = _match("weak_match.json")
 
     assert result.required_skills_matched == []
-    assert len(result.required_skills_missing) == len(signals.required_skills)
-    assert "React" in result.required_skills_missing
+    assert set(result.required_skills_missing) == {
+        "React",
+        "TypeScript",
+        "CSS",
+        "frontend architecture",
+        "design systems",
+    }
 
 
 def test_ambiguous_match_is_partial_not_empty():
@@ -67,6 +68,25 @@ def test_strong_match_seniority_aligns_with_job():
     assert any(
         "Seniority meets job expectations" in reason for reason in result.reasons
     )
+
+
+def test_match_without_target_roles_skips_role_alignment_risk():
+    profile = UserProfile(name="Ana", skills=["Python"], seniority="senior")
+    job = JobDescription(
+        title="Platform Engineer",
+        description="Build backend services.\n\n- Python\n- Kubernetes",
+        seniority="senior",
+    )
+    signals = JobSignals(
+        required_skills=["Python", "Kubernetes"],
+        seniority_signals=["senior"],
+    )
+
+    result = match_profile_to_job(profile, job, signals)
+
+    assert not result.role_aligned
+    assert not any("target role" in risk.lower() for risk in result.risks)
+    assert not any("target role" in reason.lower() for reason in result.reasons)
 
 
 def test_weak_match_flags_seniority_gap():
