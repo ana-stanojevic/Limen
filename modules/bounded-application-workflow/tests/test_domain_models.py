@@ -12,6 +12,23 @@ from app.domain.models import (
 from app.domain.job_signals import JobSignals
 
 
+def test_user_profile_defaults_all_fields():
+    profile = UserProfile(name="Ana")
+
+    assert profile.target_roles == []
+    assert profile.skills == []
+    assert profile.experience_summary == ""
+    assert profile.location == ""
+    assert profile.seniority == ""
+    assert profile.production_experience == []
+    assert profile.work_preferences == []
+
+
+def test_user_profile_rejects_null_list_fields():
+    with pytest.raises(ValidationError):
+        UserProfile(name="Ana", skills=None)
+
+
 def test_workflow_input_can_be_created():
     user_profile = UserProfile(
         name="Ana",

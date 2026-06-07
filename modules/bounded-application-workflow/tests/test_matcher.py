@@ -70,7 +70,7 @@ def test_strong_match_seniority_aligns_with_job():
     )
 
 
-def test_match_without_target_roles_skips_role_alignment_risk():
+def test_match_without_target_roles_flags_role_misalignment():
     profile = UserProfile(name="Ana", skills=["Python"], seniority="senior")
     job = JobDescription(
         title="Platform Engineer",
@@ -85,7 +85,7 @@ def test_match_without_target_roles_skips_role_alignment_risk():
     result = match_profile_to_job(profile, job, signals)
 
     assert not result.role_aligned
-    assert not any("target role" in risk.lower() for risk in result.risks)
+    assert any("target role" in risk.lower() for risk in result.risks)
     assert not any("target role" in reason.lower() for reason in result.reasons)
 
 

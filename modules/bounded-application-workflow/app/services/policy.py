@@ -68,33 +68,8 @@ def decision_from_signals(
     return base
 
 
-def _missing_information_from_profile(
-    profile: UserProfile, match: ProfileMatchResult
-) -> list[str]:
-    missing: list[str] = []
-
-    for skill in match.required_skills_missing:
-        missing.append(f"Required skill not evidenced in profile: {skill}")
-
-    if not profile.experience_summary:
-        missing.append("Profile experience summary is empty.")
-
-    if not profile.target_roles:
-        missing.append("Profile has no target roles defined.")
-
-    return missing
-
-
-def _missing_information_from_signals(signals: JobSignals) -> list[str]:
-    return [
-        f"Job posting missing signal: {signal}"
-        for signal in signals.missing_signals
-    ]
-
-
 def build_workflow_decision(
     match: ProfileMatchResult,
-    profile: UserProfile,
     signals: JobSignals,
 ) -> WorkflowDecision:
     return WorkflowDecision(
@@ -106,10 +81,10 @@ def build_workflow_decision(
         score=match.score,
         reasons=list(match.reasons),
         risks=list(match.risks),
-        missing_information=(
-            _missing_information_from_profile(profile, match)
-            + _missing_information_from_signals(signals)
-        ),
+        missing_information=[
+            f"Job posting missing signal: {signal}"
+            for signal in signals.missing_signals
+        ],
     )
 
 
@@ -126,7 +101,7 @@ def evaluate_workflow(workflow_input: WorkflowInput) -> WorkflowOutput:
 
     signals = extract_job_signals(job)
     match = match_profile_to_job(profile, job, signals)
-    decision = build_workflow_decision(match, profile, signals)
+    decision = build_workflow_decision(match, signals)
 
     return WorkflowOutput(
         input_summary=_input_summary(profile, job),

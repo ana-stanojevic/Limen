@@ -76,7 +76,7 @@ def test_build_workflow_decision_carries_match_and_job_signals():
         missing_signals=["remote policy", "salary range"],
     )
 
-    decision = build_workflow_decision(match, profile, signals)
+    decision = build_workflow_decision(match, signals)
 
     assert decision.decision == DecisionType.ESCALATE
     assert decision.score == match.score
@@ -84,11 +84,8 @@ def test_build_workflow_decision_carries_match_and_job_signals():
     assert "Missing required skills: Kubernetes." in decision.risks
     assert "Missing production experience for: on-call rotation." in decision.risks
     assert "Job posting risk: ambiguous scope" in decision.risks
-    assert (
-        "Required skill not evidenced in profile: Kubernetes"
-        in decision.missing_information
-    )
     assert "Job posting missing signal: remote policy" in decision.missing_information
+    assert "Job posting missing signal: salary range" in decision.missing_information
 
 
 def test_build_workflow_decision_carries_production_alignment_from_match():
@@ -117,7 +114,7 @@ def test_build_workflow_decision_carries_production_alignment_from_match():
         risk_indicators=["ambiguous scope"],
     )
 
-    decision = build_workflow_decision(match, profile, signals)
+    decision = build_workflow_decision(match, signals)
 
     assert "Matched 1 of 1 production expectations." in decision.reasons
     assert not any(

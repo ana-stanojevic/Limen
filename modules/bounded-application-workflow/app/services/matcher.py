@@ -40,7 +40,7 @@ def _profile_corpus(profile: UserProfile) -> str:
         *profile.skills,
         *profile.target_roles,
         *profile.work_preferences,
-        profile.experience_summary or "",
+        profile.experience_summary,
     ]
     return " ".join(parts).lower()
 
@@ -50,7 +50,7 @@ def _profile_sources(profile: UserProfile) -> list[str]:
         *profile.skills,
         *profile.target_roles,
         *profile.work_preferences,
-        profile.experience_summary or "",
+        profile.experience_summary,
     ]
 
 
@@ -356,10 +356,7 @@ def match_profile_to_job(
     preferred_ratio = _coverage_ratio(
         len(preferred_matched), len(signals.preferred_skills)
     )
-    has_target_roles = bool(user_profile.target_roles)
-    role_aligned = (
-        _role_aligned(user_profile, job_description) if has_target_roles else False
-    )
+    role_aligned = _role_aligned(user_profile, job_description)
     role_ratio = 1.0 if role_aligned else 0.0
 
     production_matched, production_missing = _partition_production_expectations(
@@ -390,13 +387,12 @@ def match_profile_to_job(
         reasons.append(
             f"Matched {len(preferred_matched)} preferred skills."
         )
-    if has_target_roles:
-        if role_aligned:
-            reasons.append("Job aligns with target role.")
-        else:
-            risks.append(
-                "Job title or description does not clearly align with target roles."
-            )
+    if role_aligned:
+        reasons.append("Job aligns with target role.")
+    else:
+        risks.append(
+            "Job title or description does not clearly align with target roles."
+        )
 
     if required_missing:
         risks.append(
