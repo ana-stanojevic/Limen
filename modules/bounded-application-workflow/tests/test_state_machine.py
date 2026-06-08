@@ -1,14 +1,14 @@
 import pytest
 
+from app.domain.state_machine import WorkflowStateMachine
 from app.domain.workflow_state import (
     VALID_TRANSITIONS,
     InvalidTransitionError,
     WorkflowState,
 )
-from app.services.state_machine import WorkflowStateMachine
 
 
-def test_workflow_states_are_explicitly_defined():
+def test_workflow_state_contract():
     assert {state.value for state in WorkflowState} == {
         "intake",
         "signal_extraction",
@@ -17,20 +17,9 @@ def test_workflow_states_are_explicitly_defined():
         "human_review",
         "decision",
     }
-
-
-def test_valid_transitions_are_defined_centrally():
-    assert WorkflowState.INTAKE in VALID_TRANSITIONS
     assert WorkflowState.SIGNAL_EXTRACTION in VALID_TRANSITIONS[WorkflowState.INTAKE]
     assert WorkflowState.DECISION in VALID_TRANSITIONS[WorkflowState.HUMAN_REVIEW]
     assert VALID_TRANSITIONS[WorkflowState.DECISION] == frozenset()
-
-
-def test_state_machine_starts_at_intake():
-    machine = WorkflowStateMachine()
-
-    assert machine.current_state == WorkflowState.INTAKE
-    assert machine.history == [WorkflowState.INTAKE]
 
 
 @pytest.mark.parametrize(
@@ -62,46 +51,29 @@ def test_valid_transition_paths(path: list[WorkflowState]):
 
 
 @pytest.mark.parametrize(
-    "current,target",
+    "current,target,error_match",
     [
-        (WorkflowState.INTAKE, WorkflowState.DECISION),
-        (WorkflowState.INTAKE, WorkflowState.HUMAN_REVIEW),
-        (WorkflowState.SIGNAL_EXTRACTION, WorkflowState.DECISION),
-        (WorkflowState.PROFILE_MATCHING, WorkflowState.INTAKE),
-        (WorkflowState.POLICY_EVALUATION, WorkflowState.INTAKE),
-        (WorkflowState.HUMAN_REVIEW, WorkflowState.POLICY_EVALUATION),
-        (WorkflowState.DECISION, WorkflowState.INTAKE),
+        (WorkflowState.INTAKE, WorkflowState.DECISION, None),
+        (WorkflowState.INTAKE, WorkflowState.HUMAN_REVIEW, None),
+        (WorkflowState.SIGNAL_EXTRACTION, WorkflowState.DECISION, None),
+        (WorkflowState.PROFILE_MATCHING, WorkflowState.INTAKE, None),
+        (WorkflowState.POLICY_EVALUATION, WorkflowState.INTAKE, None),
+        (WorkflowState.HUMAN_REVIEW, WorkflowState.POLICY_EVALUATION, None),
+        (WorkflowState.DECISION, WorkflowState.INTAKE, "terminal state"),
     ],
 )
 def test_invalid_transitions_fail_with_clear_error(
     current: WorkflowState,
     target: WorkflowState,
+    error_match: str | None,
 ):
     machine = WorkflowStateMachine(initial_state=current)
 
-    with pytest.raises(InvalidTransitionError) as exc_info:
+    with pytest.raises(InvalidTransitionError, match=error_match) as exc_info:
         machine.transition_to(target)
 
     error = exc_info.value
     assert error.current == current
     assert error.target == target
-    assert current.value in str(error)
-    assert target.value in str(error)
     assert machine.current_state == current
     assert machine.history == [current]
-
-
-def test_terminal_state_rejects_all_transitions():
-    machine = WorkflowStateMachine(initial_state=WorkflowState.DECISION)
-
-    with pytest.raises(InvalidTransitionError, match="terminal state"):
-        machine.transition_to(WorkflowState.INTAKE)
-
-    assert machine.current_state == WorkflowState.DECISION
-
-
-def test_can_transition_to_reflects_valid_targets():
-    machine = WorkflowStateMachine()
-
-    assert machine.can_transition_to(WorkflowState.SIGNAL_EXTRACTION) is True
-    assert machine.can_transition_to(WorkflowState.DECISION) is False

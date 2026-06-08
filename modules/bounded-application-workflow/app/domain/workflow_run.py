@@ -3,14 +3,11 @@ from enum import Enum
 from typing import Optional
 from uuid import uuid4
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, computed_field
 
 from app.domain.models import WorkflowInput, WorkflowOutput
-from app.domain.workflow_state import (
-    VALID_TRANSITIONS,
-    InvalidTransitionError,
-    WorkflowState,
-)
+from app.domain.state_machine import WorkflowStateMachine
+from app.domain.workflow_state import InvalidTransitionError, WorkflowState
 
 
 class WorkflowEventType(str, Enum):
@@ -53,12 +50,25 @@ class WorkflowRun(BaseModel):
 
     workflow_id: str = Field(default_factory=lambda: str(uuid4()))
     input: WorkflowInput
-    current_state: WorkflowState = WorkflowState.INTAKE
     plan: WorkflowPlan
     output: Optional[WorkflowOutput] = None
     events: list[WorkflowEvent] = Field(default_factory=list)
     started_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     completed_at: Optional[datetime] = None
+
+    _state_machine: WorkflowStateMachine = PrivateAttr()
+
+    def model_post_init(self, __context: object) -> None:
+        self._state_machine = WorkflowStateMachine()
+
+    @computed_field
+    @property
+    def current_state(self) -> WorkflowState:
+        return self._state_machine.current_state
+
+    @property
+    def state_history(self) -> list[WorkflowState]:
+        return self._state_machine.history
 
     @property
     def is_complete(self) -> bool:
@@ -68,13 +78,8 @@ class WorkflowRun(BaseModel):
             and self.completed_at is not None
         )
 
-    @property
-    def state_history(self) -> list[WorkflowState]:
-        history = [WorkflowState.INTAKE]
-        for event in self.events:
-            if event.event_type == WorkflowEventType.STATE_ENTERED:
-                history.append(event.state)
-        return history
+    def can_transition_to(self, target: WorkflowState) -> bool:
+        return self._state_machine.can_transition_to(target)
 
     def record_event(
         self,
@@ -94,9 +99,7 @@ class WorkflowRun(BaseModel):
         return event
 
     def transition_to(self, target: WorkflowState, message: str = "") -> WorkflowState:
-        if target not in VALID_TRANSITIONS[self.current_state]:
-            raise InvalidTransitionError(self.current_state, target)
-        self.current_state = target
+        self._state_machine.transition_to(target)
         self.record_event(WorkflowEventType.STATE_ENTERED, target, message)
         return target
 
@@ -110,3 +113,13 @@ class WorkflowRun(BaseModel):
             WorkflowState.DECISION,
             "Workflow run completed.",
         )
+
+
+__all__ = [
+    "InvalidTransitionError",
+    "WorkflowEvent",
+    "WorkflowEventType",
+    "WorkflowPlan",
+    "WorkflowRun",
+    "default_workflow_plan",
+]

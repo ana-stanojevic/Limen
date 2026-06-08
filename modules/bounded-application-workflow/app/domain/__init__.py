@@ -15,6 +15,7 @@ from app.domain.workflow_run import (
     WorkflowRun,
     default_workflow_plan,
 )
+from app.domain.state_machine import WorkflowStateMachine
 from app.domain.workflow_state import (
     VALID_TRANSITIONS,
     InvalidTransitionError,
@@ -31,6 +32,7 @@ __all__ = [
     "UserProfile",
     "VALID_TRANSITIONS",
     "WorkflowDecision",
+    "WorkflowStateMachine",
     "WorkflowEvent",
     "WorkflowEventType",
     "WorkflowInput",

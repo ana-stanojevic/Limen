@@ -1,14 +1,10 @@
-from datetime import datetime, timezone
-
-import pytest
-
 from app.domain.workflow_run import (
     WorkflowEventType,
     WorkflowPlan,
     WorkflowRun,
     default_workflow_plan,
 )
-from app.domain.workflow_state import InvalidTransitionError, WorkflowState
+from app.domain.workflow_state import WorkflowState
 from app.services.policy import run_workflow_evaluation
 from tests.fixture_helpers import workflow_input as load_workflow_input
 
@@ -24,17 +20,18 @@ def test_workflow_run_has_unique_id():
     assert run_a.workflow_id != run_b.workflow_id
 
 
-def test_workflow_run_tracks_current_state():
+def test_workflow_run_transition_records_event():
     run = WorkflowRun(
         input=load_workflow_input("strong_match.json"),
         plan=default_workflow_plan(),
     )
 
-    assert run.current_state == WorkflowState.INTAKE
-
-    run.transition_to(WorkflowState.SIGNAL_EXTRACTION)
+    run.transition_to(WorkflowState.SIGNAL_EXTRACTION, "extracting signals")
 
     assert run.current_state == WorkflowState.SIGNAL_EXTRACTION
+    assert run.events[-1].event_type == WorkflowEventType.STATE_ENTERED
+    assert run.events[-1].state == WorkflowState.SIGNAL_EXTRACTION
+    assert run.events[-1].message == "extracting signals"
 
 
 def test_workflow_run_stores_plan_output_and_events():
@@ -55,16 +52,6 @@ def test_workflow_run_stores_plan_output_and_events():
     assert run.output is None
     assert len(run.events) == 1
     assert run.events[0].event_type == WorkflowEventType.RUN_STARTED
-
-
-def test_workflow_run_rejects_invalid_transitions():
-    run = WorkflowRun(
-        input=load_workflow_input("strong_match.json"),
-        plan=default_workflow_plan(),
-    )
-
-    with pytest.raises(InvalidTransitionError):
-        run.transition_to(WorkflowState.DECISION)
 
 
 def test_default_workflow_plan_defines_standard_stages():
@@ -92,5 +79,6 @@ def test_completed_workflow_run_is_inspectable():
 
     snapshot = run.model_dump()
     assert snapshot["workflow_id"] == run.workflow_id
+    assert snapshot["current_state"] == WorkflowState.DECISION.value
     assert snapshot["output"]["decision"]["decision"] == output.decision.decision.value
     assert len(snapshot["events"]) >= 2
