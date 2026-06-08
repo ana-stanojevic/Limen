@@ -1,6 +1,6 @@
 # Roadmap
 
-## Milestone 1 — Bounded Application Workflow MVP
+## Milestone 1 — Bounded Application Workflow MVP — completed
 
 Goal: build the first executable workflow inside Limen.
 
@@ -27,7 +27,7 @@ Done when:
 - the decision policy is covered by tests
 - CI validates the implementation
 
-## Milestone 2 — Signal Extraction
+## Milestone 2 — Signal Extraction — completed
 
 Improve structured extraction from job descriptions and user profiles.
 
@@ -40,7 +40,14 @@ Focus:
 - ambiguity and risk indicators
 - missing signals
 
-## Milestone 3 — Agentic Workflow Layer
+Done when:
+
+- job descriptions yield structured signal categories
+- user profiles expose seniority and production experience fields
+- matcher incorporates signal-level alignment and risk detection
+- extraction and matching are covered by tests and fixtures
+
+## Milestone 3 — Agentic Workflow Layer — in progress
 
 Introduce bounded agentic orchestration.
 
@@ -51,6 +58,14 @@ Focus:
 - add explicit workflow states
 - introduce human review points
 - keep decisions observable and auditable
+
+Done when:
+
+- workflow states are explicit and transition through a defined state machine
+- planning and execution are separate stages with clear boundaries
+- each agent has a defined responsibility and input/output contract
+- human review points are wired into escalation paths
+- state transitions and decisions are logged and inspectable
 
 ## Milestone 4 — User-Facing Demo
 

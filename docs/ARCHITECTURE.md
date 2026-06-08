@@ -1,6 +1,6 @@
-## Agentic 
+## Agentic
 
-The architecture of the first module Bounded Application Workflow is agent-oriented.
+The architecture of the Bounded Application Workflow module is agent-oriented.
 
 Instead of relying on a single monolithic LLM interaction, the system is designed around specialized bounded agents responsible for:
 
@@ -30,20 +30,55 @@ Agentic behavior is introduced incrementally and remains constrained by explicit
 
 ---
 
-# Architecture 
+# Current Phase — Milestone 3: Agentic Workflow Layer
 
-Iterations introduce:
+Milestones 1 and 2 delivered a working evaluation engine with structured signal extraction. Milestone 3 introduces bounded agentic orchestration on top of that foundation.
 
-- multi-agent orchestration,
+## Workflow State Machine
+
+```
+intake
+  → signal_extraction
+  → profile_matching
+  → policy_evaluation
+  → [human_review]
+  → decision
+```
+
+Each state has a defined entry condition, responsible agent, and output contract. Transitions are explicit and logged.
+
+## Agent Boundaries
+
+| Stage | Agent | Input | Output |
+| ----- | ----- | ----- | ------ |
+| signal_extraction | Signal Extractor | raw job description | `JobSignals` |
+| profile_matching | Profile Matcher | `JobSignals` + `UserProfile` | `ProfileMatchResult` |
+| policy_evaluation | Decision Policy | `ProfileMatchResult` | `WorkflowDecision` |
+| human_review | Human Review Gate | escalated `WorkflowDecision` | approved or revised decision |
+| orchestration | Workflow Orchestrator | workflow input | state-managed `WorkflowOutput` |
+
+Planning (what to evaluate, which signals matter) is separated from execution (running agents, applying policy, emitting decisions).
+
+## Milestone 3 Deliverables
+
+- explicit workflow state machine
+- agent responsibility contracts
+- planning/execution separation
+- human review integration on escalation paths
+- observable state transitions and decision chains
+
+---
+
+# Future Iterations
+
+Later milestones introduce:
+
 - memory systems,
 - retrieval-augmented evaluation,
-- workflow state machines,
-- planning and execution separation,
 - tool-using agents,
 - browser automation agents,
 - asynchronous task coordination,
-- evaluation and self-critique loops,
-- human-in-the-loop review stages.
+- evaluation and self-critique loops.
 
 The system is intentionally designed to evolve toward production-grade agentic workflows rather than simple prompt-response interactions.
 

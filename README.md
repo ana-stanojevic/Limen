@@ -104,20 +104,23 @@ modules/
 
 **Milestone 1 — Bounded Application Workflow MVP** — completed.
 
-The first executable evaluation engine is in place: input/output contract, job description parsing, profile matching, decision policy, runtime API, tests, and CI. The module runs locally, opportunities can be evaluated via the API, and the decision policy is covered by tests.
+The first executable evaluation engine is in place: input/output contract, job description parsing, profile matching, decision policy, runtime API, tests, and CI.
 
-**Milestone 2 — Signal Extraction** — in progress.
+**Milestone 2 — Signal Extraction** — completed.
 
-Improve structured extraction from job descriptions and user profiles.
+Structured signal extraction from job descriptions and user profiles: required and preferred skills, seniority signals, production expectations, ambiguity and risk indicators, and missing signals. Matcher and extractor are covered by tests and fixtures.
+
+**Milestone 3 — Agentic Workflow Layer** — in progress.
+
+Introduce bounded agentic orchestration on top of the evaluation engine.
 
 Focus:
 
-- required skills
-- preferred skills
-- seniority signals
-- production expectations
-- ambiguity and risk indicators
-- missing signals
+- separate planning from execution
+- define agent responsibilities
+- add explicit workflow states
+- introduce human review points
+- keep decisions observable and auditable
 
 See the full roadmap: [`docs/ROADMAP.md`](docs/ROADMAP.md).
 

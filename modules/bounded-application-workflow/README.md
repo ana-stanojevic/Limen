@@ -36,9 +36,17 @@ Focus:
 - ambiguity and risk indicators
 - missing signals
 
-**Milestone 3 — Agentic Workflow Layer** — next.
+**Milestone 3 — Agentic Workflow Layer** — in progress.
 
-Introduce bounded agentic orchestration on top of the planning/execution split: explicit workflow states, agent responsibilities, and human review points.
+Introduce bounded agentic orchestration on top of the evaluation engine with explicit workflow states and human review gates.
+
+Focus:
+
+- separate planning from execution
+- define agent responsibilities
+- add explicit workflow states
+- introduce human review points
+- keep decisions observable and auditable
 
 See the full roadmap: [`../../docs/ROADMAP.md`](../../docs/ROADMAP.md).
 

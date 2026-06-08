@@ -8,6 +8,8 @@ The goal of the module is not to automate applications at scale, but to support 
 
 This module represents the first executable component of the broader Limen platform.
 
+**Current phase:** Milestone 3 — Agentic Workflow Layer. Milestones 1 (MVP) and 2 (Signal Extraction) are complete. The module now moves from a single-pass evaluation pipeline to bounded agentic orchestration with explicit workflow states, agent responsibilities, and human review points.
+
 ---
 
 # Problem
@@ -38,7 +40,6 @@ The result is decision fatigue, low-quality applications, and poor alignment bet
 Initial target users:
 
 - technical professionals,
-- AI engineers,
 - researchers transitioning into industry,
 - multidisciplinary candidates with non-linear careers.
 
@@ -75,7 +76,50 @@ It does not:
 
 The broader Limen system is designed toward bounded agentic workflows rather than isolated prompt-response interactions.
 
-The MVP intentionally starts with deterministic evaluation policies and explicit system boundaries before introducing more advanced orchestration, memory, and tool-using agents in future iterations.
+Milestones 1 and 2 established deterministic evaluation policies, structured signal extraction, and explicit system boundaries. Milestone 3 introduces bounded agentic orchestration: planning separated from execution, defined agent responsibilities, explicit workflow states, and human review points.
+
+---
+
+# Milestone 3 Scope — Agentic Workflow Layer
+
+## Goal
+
+Evolve the evaluation engine into a bounded agentic workflow where decisions are orchestrated through explicit states, specialized agents, and human oversight.
+
+## Agent Responsibilities
+
+| Agent | Responsibility |
+| ----- | -------------- |
+| Signal Extractor | Parse job descriptions into structured signal categories |
+| Profile Matcher | Score profile alignment against extracted signals |
+| Decision Policy | Apply bounded thresholds and escalation rules |
+| Workflow Orchestrator | Manage state transitions and coordinate agent stages |
+| Human Review Gate | Pause execution for ambiguous or high-stakes decisions |
+
+## Workflow States
+
+The workflow progresses through explicit states rather than a single request-response cycle:
+
+```
+intake → signal_extraction → profile_matching → policy_evaluation → [human_review] → decision
+```
+
+Escalation paths route ambiguous evaluations to human review before a final decision is emitted.
+
+## Requirements
+
+- planning and execution are separate stages with clear boundaries
+- each agent has a defined input/output contract
+- workflow state is explicit and persisted across stages
+- human review points are wired into escalation paths
+- state transitions and agent outputs are logged and inspectable
+
+## Non-Goals (Milestone 3)
+
+- autonomous application submission
+- browser automation
+- unconstrained multi-agent autonomy
+- LLM-driven decision overrides without policy bounds
 
 ---
 
@@ -205,14 +249,22 @@ LLM integration is optional and not required for V1.
 
 # Success Criteria
 
-The MVP is successful if it:
+## Milestones 1 & 2 (completed)
 
 - produces deterministic structured evaluations,
 - exposes a working API endpoint,
 - passes automated tests,
 - can be run locally by external reviewers,
 - demonstrates clear system boundaries,
-- serves as a foundation for future modules.
+- extracts structured signals from job descriptions and profiles.
+
+## Milestone 3 (current)
+
+- workflow progresses through explicit, logged states,
+- planning and execution are separated with clear agent boundaries,
+- escalation routes to human review before final decision,
+- state transitions and agent outputs are inspectable,
+- serves as a foundation for the user-facing demo (Milestone 4).
 
 ---
 
