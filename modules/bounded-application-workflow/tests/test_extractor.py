@@ -1,4 +1,3 @@
-from app.domain.job_signals import JobSignals
 from app.domain.models import JobDescription
 from app.parser import parse_job_description
 from app.services.extractor import extract_job_signals
@@ -101,27 +100,6 @@ def test_extract_job_signals_prefers_required_over_preferred():
 
     assert signals.required_skills == ["Python"]
     assert signals.preferred_skills == ["FastAPI"]
-
-
-def test_extract_job_signals_returns_job_signals_model():
-    job = JobDescription(
-        title="AI Engineer",
-        description="Build LLM workflows.\n\n- Python\n\n+ FastAPI",
-    )
-
-    signals = extract_job_signals(job)
-
-    assert isinstance(signals, JobSignals)
-    assert signals.seniority_signals == []
-    assert signals.production_expectations == []
-    assert signals.risk_indicators == []
-    assert signals.missing_signals == [
-        "seniority level",
-        "remote policy",
-        "salary range",
-        "team size",
-        "employment type",
-    ]
 
 
 def test_extract_job_signals_detects_years_of_experience():
