@@ -144,15 +144,16 @@ def test_evaluate_workflow_risk_fixture_escalates():
 
 
 def test_run_workflow_evaluation_state_trace_for_prepare():
-    _, state_machine = run_workflow_evaluation(load_workflow_input("strong_match.json"))
+    _, run = run_workflow_evaluation(load_workflow_input("strong_match.json"))
 
-    assert state_machine.history == [
+    assert run.state_history == [
         WorkflowState.INTAKE,
         WorkflowState.SIGNAL_EXTRACTION,
         WorkflowState.PROFILE_MATCHING,
         WorkflowState.POLICY_EVALUATION,
         WorkflowState.DECISION,
     ]
+    assert run.is_complete is True
 
 
 def test_run_workflow_evaluation_state_trace_for_escalate():
@@ -161,10 +162,10 @@ def test_run_workflow_evaluation_state_trace_for_escalate():
     profile = load_workflow_input("ambiguous_match.json").user_profile
     workflow_input = WorkflowInput(user_profile=profile, job_description=job)
 
-    output, state_machine = run_workflow_evaluation(workflow_input)
+    output, run = run_workflow_evaluation(workflow_input)
 
     assert output.decision.decision == DecisionType.ESCALATE
-    assert state_machine.history == [
+    assert run.state_history == [
         WorkflowState.INTAKE,
         WorkflowState.SIGNAL_EXTRACTION,
         WorkflowState.PROFILE_MATCHING,
@@ -172,3 +173,4 @@ def test_run_workflow_evaluation_state_trace_for_escalate():
         WorkflowState.HUMAN_REVIEW,
         WorkflowState.DECISION,
     ]
+    assert run.is_complete is True

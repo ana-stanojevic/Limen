@@ -8,10 +8,10 @@ from app.domain.models import (
     WorkflowInput,
     WorkflowOutput,
 )
+from app.domain.workflow_run import WorkflowEventType, WorkflowRun, default_workflow_plan
 from app.domain.workflow_state import WorkflowState
 from app.services.extractor import extract_job_signals
 from app.services.matcher import match_profile_to_job
-from app.services.state_machine import WorkflowStateMachine
 
 # MVP thresholds — docs/PRD.md
 _PREPARE_MIN = 0.75
@@ -99,24 +99,29 @@ def _input_summary(profile: UserProfile, job: JobDescription) -> str:
 
 def run_workflow_evaluation(
     workflow_input: WorkflowInput,
-) -> tuple[WorkflowOutput, WorkflowStateMachine]:
+) -> tuple[WorkflowOutput, WorkflowRun]:
     profile = workflow_input.user_profile
     job = workflow_input.job_description
-    state_machine = WorkflowStateMachine()
+    run = WorkflowRun(input=workflow_input, plan=default_workflow_plan())
+    run.record_event(
+        WorkflowEventType.RUN_STARTED,
+        WorkflowState.INTAKE,
+        "Workflow run started.",
+    )
 
-    state_machine.transition_to(WorkflowState.SIGNAL_EXTRACTION)
+    run.transition_to(WorkflowState.SIGNAL_EXTRACTION)
     signals = extract_job_signals(job)
 
-    state_machine.transition_to(WorkflowState.PROFILE_MATCHING)
+    run.transition_to(WorkflowState.PROFILE_MATCHING)
     match = match_profile_to_job(profile, job, signals)
 
-    state_machine.transition_to(WorkflowState.POLICY_EVALUATION)
+    run.transition_to(WorkflowState.POLICY_EVALUATION)
     decision = build_workflow_decision(match, signals)
 
     if decision.decision == DecisionType.ESCALATE:
-        state_machine.transition_to(WorkflowState.HUMAN_REVIEW)
+        run.transition_to(WorkflowState.HUMAN_REVIEW)
 
-    state_machine.transition_to(WorkflowState.DECISION)
+    run.transition_to(WorkflowState.DECISION)
 
     output = WorkflowOutput(
         input_summary=_input_summary(profile, job),
@@ -124,7 +129,8 @@ def run_workflow_evaluation(
         job_signals=signals,
         recommended_next_steps=list(_NEXT_STEPS[decision.decision]),
     )
-    return output, state_machine
+    run.complete(output)
+    return output, run
 
 
 def evaluate_workflow(workflow_input: WorkflowInput) -> WorkflowOutput:
