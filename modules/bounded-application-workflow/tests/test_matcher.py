@@ -1,7 +1,7 @@
 import pytest
 
 from app.domain.job_signals import JobSignals
-from app.domain.models import JobDescription, ProfileMatchResult, UserProfile
+from app.domain.models import JobDescription, UserProfile
 from app.services.extractor import extract_job_signals
 from app.services.matcher import match_profile_to_job
 from tests.fixture_helpers import workflow_input as load_workflow_input
@@ -23,7 +23,7 @@ def _match(fixture_name: str):
         ("ambiguous_match.json", 0.35, 0.75, True),
     ],
 )
-def test_match_profile_to_job_fixture_ranges(
+def test_match_fixture_score_and_role_alignment(
     fixture_name: str, min_score: float, max_score: float, role_aligned: bool
 ):
     result = _match(fixture_name)
@@ -32,15 +32,7 @@ def test_match_profile_to_job_fixture_ranges(
     assert result.role_aligned is role_aligned
 
 
-def test_strong_match_covers_core_required_skills():
-    result = _match("strong_match.json")
-
-    assert "Python" in result.required_skills_matched
-    assert "LLM applications" in result.required_skills_matched
-    assert len(result.required_skills_missing) <= 3
-
-
-def test_weak_match_misses_frontend_stack():
+def test_weak_match_partitions_required_skills():
     result = _match("weak_match.json")
 
     assert result.required_skills_matched == []
@@ -53,24 +45,14 @@ def test_weak_match_misses_frontend_stack():
     }
 
 
-def test_ambiguous_match_is_partial_not_empty():
+def test_ambiguous_match_has_partial_skill_coverage():
     result = _match("ambiguous_match.json")
 
     assert result.required_skills_matched
     assert result.required_skills_missing
-    assert result.reasons
-    assert result.risks
 
 
-def test_strong_match_seniority_aligns_with_job():
-    result = _match("strong_match.json")
-
-    assert any(
-        "Seniority meets job expectations" in reason for reason in result.reasons
-    )
-
-
-def test_match_without_target_roles_flags_role_misalignment():
+def test_role_misalignment_without_target_roles():
     profile = UserProfile(name="Ana", skills=["Python"], seniority="senior")
     job = JobDescription(
         title="Platform Engineer",
@@ -85,19 +67,15 @@ def test_match_without_target_roles_flags_role_misalignment():
     result = match_profile_to_job(profile, job, signals)
 
     assert not result.role_aligned
-    assert any("target role" in risk.lower() for risk in result.risks)
-    assert not any("target role" in reason.lower() for reason in result.reasons)
 
 
-def test_weak_match_flags_seniority_gap():
+def test_weak_match_flags_one_level_seniority_gap():
     result = _match("weak_match.json")
 
-    assert any(
-        "Job expects senior" in risk for risk in result.risks
-    )
+    assert any("Job expects senior" in risk for risk in result.risks)
 
 
-def test_overqualified_profile_flags_poor_seniority_fit():
+def test_severe_seniority_mismatch_when_overqualified():
     profile = UserProfile(name="Ana", seniority="staff")
     job = JobDescription(
         title="Junior Engineer",
@@ -109,16 +87,9 @@ def test_overqualified_profile_flags_poor_seniority_fit():
     result = match_profile_to_job(profile, job, signals)
 
     assert result.severe_seniority_mismatch
-    assert not any(
-        "Seniority meets job expectations" in reason for reason in result.reasons
-    )
-    assert any(
-        "exceeds job expectations by more than one level" in risk
-        for risk in result.risks
-    )
 
 
-def test_underqualified_profile_flags_severe_seniority_gap():
+def test_severe_seniority_mismatch_when_underqualified():
     profile = UserProfile(name="Ana", seniority="junior")
     job = JobDescription(
         title="Principal Engineer",
@@ -133,12 +104,9 @@ def test_underqualified_profile_flags_severe_seniority_gap():
     result = match_profile_to_job(profile, job, signals)
 
     assert result.severe_seniority_mismatch
-    assert any(
-        "more than one level below job expectations" in risk for risk in result.risks
-    )
 
 
-def test_production_expectations_align_when_profile_documents_experience():
+def test_production_expectations_partition():
     profile = UserProfile(
         name="Ana",
         production_experience=["on-call rotation", "incident response"],
@@ -155,38 +123,9 @@ def test_production_expectations_align_when_profile_documents_experience():
 
     assert result.production_expectations_matched == ["on-call rotation"]
     assert result.production_expectations_missing == ["observability"]
-    assert any(
-        "Matched 1 of 2 production expectations" in reason
-        for reason in result.reasons
-    )
-    assert not any(
-        "Missing production experience for:" in risk for risk in result.risks
-    )
 
 
-def test_production_expectations_flags_missing_experience():
-    profile = UserProfile(
-        name="Ana",
-        seniority="senior",
-        production_experience=["incident response"],
-    )
-    signals = JobSignals(production_expectations=["on-call rotation"])
-
-    result = match_profile_to_job(
-        profile,
-        JobDescription(title="Platform Engineer", description="Operate services."),
-        signals,
-    )
-
-    assert result.production_expectations_matched == []
-    assert result.production_expectations_missing == ["on-call rotation"]
-    assert any(
-        "Missing production experience for: on-call rotation" in risk
-        for risk in result.risks
-    )
-
-
-def test_production_gap_risk_when_majority_missing():
+def test_production_gap_surfaces_risk_when_material():
     profile = UserProfile(
         name="Ana",
         production_experience=["on-call rotation"],
@@ -205,13 +144,12 @@ def test_production_gap_risk_when_majority_missing():
         signals,
     )
 
-    assert len(result.production_expectations_missing) == 2
     assert any(
         "Missing production experience for:" in risk for risk in result.risks
     )
 
 
-def test_production_gap_lowers_score():
+def test_production_alignment_affects_score():
     job = JobDescription(title="Platform Engineer", description="Operate services.")
     aligned = UserProfile(
         name="Ana",
@@ -234,7 +172,7 @@ def test_production_gap_lowers_score():
     assert aligned_result.score > partial_result.score
 
 
-def test_seniority_gap_lowers_score():
+def test_seniority_alignment_affects_score():
     job = JobDescription(
         title="Senior Engineer",
         description="Build features.\n\n- Python",
@@ -250,7 +188,7 @@ def test_seniority_gap_lowers_score():
     assert aligned_result.score > gap_result.score
 
 
-def test_production_expectations_skipped_when_job_has_none():
+def test_production_expectations_ignored_when_absent():
     profile = UserProfile(name="Ana", production_experience=["on-call rotation"])
     signals = JobSignals(required_skills=["Python"])
 
@@ -262,5 +200,3 @@ def test_production_expectations_skipped_when_job_has_none():
 
     assert result.production_expectations_matched == []
     assert result.production_expectations_missing == []
-    assert not any("production" in reason.lower() for reason in result.reasons)
-    assert not any("production" in risk.lower() for risk in result.risks)

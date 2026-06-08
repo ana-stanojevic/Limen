@@ -4,12 +4,14 @@
     "target_roles": ["AI Engineer"],
     "skills": [
       "machine learning research",
-      "LLM systems",
       "Python",
-      "end-to-end product thinking",
+      "LLM applications",
+      "evaluation pipelines",
+      "agentic workflows",
+      "product ownership",
       "AI reliability"
     ],
-    "experience_summary": "Research background with applied AI product work.",
+    "experience_summary": "Research and startup background with applied AI product work.",
     "location": "Zurich, Switzerland",
     "seniority": "mid-senior",
     "work_preferences": [

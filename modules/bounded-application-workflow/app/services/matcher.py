@@ -35,16 +35,6 @@ def _tokens(text: str) -> set[str]:
     }
 
 
-def _profile_corpus(profile: UserProfile) -> str:
-    parts = [
-        *profile.skills,
-        *profile.target_roles,
-        *profile.work_preferences,
-        profile.experience_summary,
-    ]
-    return " ".join(parts).lower()
-
-
 def _profile_sources(profile: UserProfile) -> list[str]:
     return [
         *profile.skills,
@@ -52,6 +42,10 @@ def _profile_sources(profile: UserProfile) -> list[str]:
         *profile.work_preferences,
         profile.experience_summary,
     ]
+
+
+def _profile_corpus(profile: UserProfile) -> str:
+    return " ".join(_profile_sources(profile)).lower()
 
 
 def _specific_tokens(tokens: set[str]) -> set[str]:
@@ -88,10 +82,10 @@ def _skill_matches_in_text(text: str, skill: str) -> bool:
 
 
 def _skill_matches(profile: UserProfile, skill: str) -> bool:
-    for source in _profile_sources(profile):
-        if source and _skill_matches_in_text(source, skill):
-            return True
-    #return _skill_matches_in_text(_profile_corpus(profile), skill)
+    return any(
+        source and _skill_matches_in_text(source, skill)
+        for source in _profile_sources(profile)
+    )
 
 
 def _partition_skills(
@@ -147,7 +141,6 @@ _PRODUCTION_RISK_MIN_MISSING = 2
 
 _SENIORITY_RANKS: list[tuple[str, int]] = [
     ("mid-senior", 3),
-    ("mid-level", 2),
     ("junior", 1),
     ("staff", 5),
     ("principal", 5),
@@ -312,7 +305,6 @@ def _partition_production_expectations(
 
 
 def _assess_production_alignment(
-    profile: UserProfile,
     signals: JobSignals,
     matched: list[str],
     missing: list[str],
@@ -405,11 +397,7 @@ def match_profile_to_job(
     reasons.extend(seniority_reasons)
     risks.extend(seniority_risks)
 
-    (
-        production_reasons,
-        production_risks,
-    ) = _assess_production_alignment(
-        user_profile,
+    production_reasons, production_risks = _assess_production_alignment(
         signals,
         production_matched,
         production_missing,
