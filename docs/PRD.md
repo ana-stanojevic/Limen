@@ -52,35 +52,21 @@ The system is designed for users who value:
 
 ---
 
-# MVP Goal
+# Core Evaluation Engine (Milestones 1 & 2 — completed)
 
-Build a working evaluation engine that:
+The module ships a working evaluation engine that:
 
 1. accepts a user profile and job description,
-2. extracts relevant opportunity signals,
+2. extracts structured opportunity signals,
 3. scores profile alignment,
 4. applies a bounded decision policy,
-5. returns a structured recommendation.
+5. returns a structured recommendation via API.
 
-The MVP focuses on evaluation only.
-
-It does not:
-
-- apply to jobs,
-- send emails,
-- automate browser workflows,
-- optimize resumes,
-- perform autonomous actions.
-
-## Architectural Direction
-
-The broader Limen system is designed toward bounded agentic workflows rather than isolated prompt-response interactions.
-
-Milestones 1 and 2 established deterministic evaluation policies, structured signal extraction, and explicit system boundaries. Milestone 3 introduces bounded agentic orchestration: planning separated from execution, defined agent responsibilities, explicit workflow states, and human review points.
+The module **evaluates** opportunities — it helps decide prepare, queue, skip, or escalate. It does **not** apply to jobs, send emails, automate browsers, or take autonomous actions on the user's behalf.
 
 ---
 
-# Milestone 3 Scope — Agentic Workflow Layer
+# Milestone 3 Scope — Agentic Workflow Layer (current)
 
 ## Goal
 
@@ -90,6 +76,7 @@ Evolve the evaluation engine into a bounded agentic workflow where decisions are
 
 | Agent | Responsibility |
 | ----- | -------------- |
+| Workflow Planner | Plan evaluation scope, required signals, guardrails, and workflow stages before execution |
 | Signal Extractor | Parse job descriptions into structured signal categories |
 | Profile Matcher | Score profile alignment against extracted signals |
 | Decision Policy | Apply bounded thresholds and escalation rules |
@@ -116,8 +103,6 @@ Escalation paths route ambiguous evaluations to human review before a final deci
 
 ## Non-Goals (Milestone 3)
 
-- autonomous application submission
-- browser automation
 - unconstrained multi-agent autonomy
 - LLM-driven decision overrides without policy bounds
 
@@ -162,13 +147,13 @@ The module returns a structured evaluation object.
 Example:
 
 ```
-json {   
-    "score": 0.82,   
-    "decision": "prepare",   
-    "missing_signals": [ "large-scale production inference"],
-    "risks": ["high infrastructure ownership expectations"],   
-    "reasoning_summary": "Strong AI systems alignment with partial production gaps."
-    } 
+{
+  "score": 0.82,
+  "decision": "prepare",
+  "missing_signals": ["large-scale production inference"],
+  "risks": ["high infrastructure ownership expectations"],
+  "reasoning_summary": "Strong AI systems alignment with partial production gaps."
+}
 ```
 
 ---
@@ -195,7 +180,7 @@ Low alignment or poor strategic fit.
 
 # Decision Policy
 
-Initial MVP thresholds:
+Current score thresholds:
 
 
 | Score Range | Decision |
@@ -206,7 +191,7 @@ Initial MVP thresholds:
 | < 0.35      | skip     |
 
 
-The policy is intentionally simple in V1.
+The policy is intentionally simple and deterministic. Guardrails (for example, risk-based escalation) are applied through the workflow plan and decision rules.
 
 Future versions incorporate:
 
@@ -218,45 +203,44 @@ Future versions incorporate:
 
 ---
 
-# Non-Goals
+# What the module does not do
 
-The MVP does not attempt to:
+The module does not:
 
+- apply to jobs or submit applications,
+- send emails,
+- automate browser workflows,
+- optimize resumes,
+- perform autonomous actions,
 - replace human judgment,
 - maximize application count,
-- fully automate career decisions,
-- autonomously submit applications,
 - scrape job platforms at scale,
 - simulate a general autonomous agent.
 
 ---
 
-# Technical Scope
+# Technical Scope (implemented)
 
-Initial implementation includes:
+Current implementation includes:
 
 - Python backend,
 - FastAPI service,
-- deterministic decision policy,
+- deterministic decision policy and signal extraction,
+- bounded agentic orchestration with explicit workflow states,
 - modular domain layer,
 - test coverage,
 - CI pipeline,
 - example inputs and outputs.
 
-LLM integration is optional and not required for V1.
+LLM-backed agents are planned for Milestone 4. See [`ARCHITECTURE.md`](./ARCHITECTURE.md) for the plan → execution flow.
 
 ---
 
 # Success Criteria
 
-## Milestones 1 & 2 (completed)
+## Milestones 1 & 2 — delivered
 
-- produces deterministic structured evaluations,
-- exposes a working API endpoint,
-- passes automated tests,
-- can be run locally by external reviewers,
-- demonstrates clear system boundaries,
-- extracts structured signals from job descriptions and profiles.
+The core evaluation engine described above is implemented and shipped.
 
 ## Milestone 3 (current)
 
