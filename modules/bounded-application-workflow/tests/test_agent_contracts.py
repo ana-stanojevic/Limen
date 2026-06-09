@@ -4,11 +4,15 @@ from app.agents import (
     DefaultProfileMatcher,
     DefaultSignalExtractor,
     DefaultWorkflowOrchestrator,
+    DefaultWorkflowPlanner,
     HumanReviewGateInput,
     PassthroughHumanReviewGate,
     ProfileMatcherInput,
     SignalExtractorInput,
     WorkflowOrchestratorInput,
+    WorkflowPlannerInput,
+    build_evaluation_brief,
+    build_workflow_plan,
     default_agents,
 )
 from app.domain.models import DecisionType
@@ -17,13 +21,15 @@ from tests.fixture_helpers import expected_decision, workflow_input as load_work
 
 
 def test_default_agents_return_all_contracts():
-    extractor, matcher, policy, review_gate, orchestrator = default_agents()
+    extractor, matcher, policy, review_gate, planner, orchestrator = default_agents()
 
     assert isinstance(extractor, DefaultSignalExtractor)
     assert isinstance(matcher, DefaultProfileMatcher)
     assert isinstance(policy, DefaultDecisionPolicy)
     assert isinstance(review_gate, PassthroughHumanReviewGate)
+    assert isinstance(planner, DefaultWorkflowPlanner)
     assert isinstance(orchestrator, DefaultWorkflowOrchestrator)
+    assert orchestrator._planner is planner
 
 
 def test_signal_extractor_contract():
@@ -80,6 +86,17 @@ def test_decision_policy_contract():
     assert result.decision.score == match.score
 
 
+def test_workflow_planner_contract():
+    workflow_input = load_workflow_input("strong_match.json")
+    planner = DefaultWorkflowPlanner()
+
+    result = planner.run(WorkflowPlannerInput(workflow_input=workflow_input))
+
+    assert result.plan.stages
+    assert result.plan.evaluation_focus
+    assert result.plan.required_signals
+
+
 def test_human_review_gate_contract_passthrough():
     workflow_input = load_workflow_input("ambiguous_match.json")
     extractor = DefaultSignalExtractor()
@@ -100,8 +117,13 @@ def test_human_review_gate_contract_passthrough():
     decision = policy.run(
         DecisionPolicyInput(match=match, signals=signals)
     ).decision
+    plan = build_workflow_plan(workflow_input)
+    evaluation_brief = build_evaluation_brief(plan, match, decision, signals)
     result = review_gate.run(
-        HumanReviewGateInput(decision=decision, match=match, signals=signals)
+        HumanReviewGateInput(
+            evaluation_brief=evaluation_brief,
+            decision=decision,
+        )
     )
 
     assert result.approved is True
@@ -110,7 +132,7 @@ def test_human_review_gate_contract_passthrough():
 
 def test_workflow_orchestrator_contract():
     workflow_input = load_workflow_input("strong_match.json")
-    _, _, _, _, orchestrator = default_agents()
+    *_, orchestrator = default_agents()
 
     result = orchestrator.run(WorkflowOrchestratorInput(workflow_input=workflow_input))
 

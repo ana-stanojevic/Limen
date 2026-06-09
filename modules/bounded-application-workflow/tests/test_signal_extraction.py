@@ -1,6 +1,6 @@
 from app.domain.models import JobDescription
 from app.parser import parse_job_description
-from app.agents import extract_job_signals
+from app.agents import extract_job_signals, seniority_level_is_unclear
 from tests.fixture_helpers import AI_ENGINEER_JOB_TEXT, load_fixture
 
 
@@ -152,6 +152,21 @@ def test_extract_job_signals_detects_risk_indicators():
         "broad unfocused role",
         "high ownership expectations",
     ]
+
+
+def test_seniority_level_unclear_ignores_ownership_only():
+    job = JobDescription(
+        title="Engineer",
+        description="- product ownership\nBuild and own product workflows.",
+        seniority=None,
+    )
+
+    assert seniority_level_is_unclear(job) is True
+
+    signals = extract_job_signals(job)
+
+    assert "product ownership" in signals.seniority_signals
+    assert "seniority level" in signals.missing_signals
 
 
 def test_extract_job_signals_detects_explicit_missing_signals():

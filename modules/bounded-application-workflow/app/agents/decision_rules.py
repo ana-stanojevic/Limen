@@ -1,3 +1,4 @@
+from app.agents.escalation import posting_requires_risk_review
 from app.domain.job_signals import JobSignals
 from app.domain.models import (
     DecisionType,
@@ -33,8 +34,7 @@ def decision_from_signals(
 
     base = decision_from_score(score)
 
-    # Risky postings require human review even when the profile match is strong.
-    if base == DecisionType.PREPARE and signals.risk_indicators:
+    if base == DecisionType.PREPARE and posting_requires_risk_review(signals):
         return DecisionType.ESCALATE
 
     return base

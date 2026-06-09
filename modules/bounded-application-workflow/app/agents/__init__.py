@@ -14,24 +14,34 @@ from app.agents.contracts import (
     WorkflowOrchestrator,
     WorkflowOrchestratorInput,
     WorkflowOrchestratorOutput,
+    WorkflowPlanner,
+    WorkflowPlannerInput,
+    WorkflowPlannerOutput,
 )
 from app.agents.decision_rules import (
     build_workflow_decision,
     decision_from_score,
     decision_from_signals,
 )
+from app.agents.escalation import (
+    posting_may_need_human_review,
+    posting_requires_risk_review,
+)
 from app.agents.default import (
     DefaultDecisionPolicy,
     DefaultProfileMatcher,
     DefaultSignalExtractor,
     DefaultWorkflowOrchestrator,
+    DefaultWorkflowPlanner,
     PassthroughHumanReviewGate,
     default_agents,
     evaluate_workflow,
     run_workflow_evaluation,
 )
+from app.agents.evaluation_brief import build_evaluation_brief
+from app.agents.workflow_planning import build_workflow_plan
 from app.agents.profile_matching import match_profile_to_job
-from app.agents.signal_extraction import extract_job_signals
+from app.agents.signal_extraction import extract_job_signals, seniority_level_is_unclear
 
 __all__ = [
     "DecisionPolicy",
@@ -41,6 +51,7 @@ __all__ = [
     "DefaultProfileMatcher",
     "DefaultSignalExtractor",
     "DefaultWorkflowOrchestrator",
+    "DefaultWorkflowPlanner",
     "HumanReviewGate",
     "HumanReviewGateInput",
     "HumanReviewGateOutput",
@@ -54,7 +65,15 @@ __all__ = [
     "WorkflowOrchestrator",
     "WorkflowOrchestratorInput",
     "WorkflowOrchestratorOutput",
+    "WorkflowPlanner",
+    "WorkflowPlannerInput",
+    "WorkflowPlannerOutput",
+    "build_evaluation_brief",
     "build_workflow_decision",
+    "build_workflow_plan",
+    "posting_may_need_human_review",
+    "posting_requires_risk_review",
+    "seniority_level_is_unclear",
     "decision_from_score",
     "decision_from_signals",
     "default_agents",

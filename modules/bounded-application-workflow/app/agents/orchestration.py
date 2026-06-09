@@ -7,15 +7,21 @@ from app.agents.contracts import (
     ProfileMatcherInput,
     SignalExtractor,
     SignalExtractorInput,
+    WorkflowPlanner,
+    WorkflowPlannerInput,
 )
+from app.agents.evaluation_brief import build_evaluation_brief
+from app.domain.job_signals import JobSignals
 from app.domain.models import (
     DecisionType,
     JobDescription,
+    ProfileMatchResult,
     UserProfile,
+    WorkflowDecision,
     WorkflowInput,
     WorkflowOutput,
 )
-from app.domain.workflow_run import WorkflowEventType, WorkflowRun, default_workflow_plan
+from app.domain.workflow_run import WorkflowEventType, WorkflowPlan, WorkflowRun
 from app.domain.workflow_state import WorkflowState
 
 _NEXT_STEPS: dict[DecisionType, list[str]] = {
@@ -48,78 +54,116 @@ def _input_summary(profile: UserProfile, job: JobDescription) -> str:
     )
 
 
+def _should_run_human_review(
+    plan: WorkflowPlan, decision: WorkflowDecision | None
+) -> bool:
+    if WorkflowState.HUMAN_REVIEW not in plan.stages:
+        return False
+    if decision is None:
+        return False
+    return decision.decision == DecisionType.ESCALATE
+
+
 def run_workflow_evaluation(
     workflow_input: WorkflowInput,
     *,
+    planner: WorkflowPlanner,
     extractor: SignalExtractor,
     matcher: ProfileMatcher,
     policy: DecisionPolicy,
     review_gate: HumanReviewGate | None = None,
+    plan: WorkflowPlan | None = None,
 ) -> tuple[WorkflowOutput, WorkflowRun]:
     profile = workflow_input.user_profile
     job = workflow_input.job_description
-    run = WorkflowRun(input=workflow_input, plan=default_workflow_plan())
+    if plan is None:
+        plan = planner.run(
+            WorkflowPlannerInput(workflow_input=workflow_input)
+        ).plan
+    run = WorkflowRun(input=workflow_input, plan=plan)
     run.record_event(
         WorkflowEventType.RUN_STARTED,
         WorkflowState.INTAKE,
         "Workflow run started.",
     )
 
-    run.transition_to(WorkflowState.SIGNAL_EXTRACTION)
-    signals = extractor.run(
-        SignalExtractorInput(job_description=job)
-    ).signals
+    signals: JobSignals | None = None
+    match: ProfileMatchResult | None = None
+    decision: WorkflowDecision | None = None
 
-    run.transition_to(WorkflowState.PROFILE_MATCHING)
-    match = matcher.run(
-        ProfileMatcherInput(
-            user_profile=profile,
-            job_description=job,
-            signals=signals,
-        )
-    ).match
+    for stage in plan.stages:
+        if stage == WorkflowState.INTAKE:
+            continue
 
-    run.transition_to(WorkflowState.POLICY_EVALUATION)
-    decision = policy.run(
-        DecisionPolicyInput(match=match, signals=signals)
-    ).decision
+        if stage == WorkflowState.HUMAN_REVIEW:
+            if not _should_run_human_review(plan, decision):
+                continue
+            run.transition_to(stage)
+            evaluation_brief = build_evaluation_brief(plan, match, decision, signals)
+            if review_gate is not None:
+                review_result = review_gate.run(
+                    HumanReviewGateInput(
+                        evaluation_brief=evaluation_brief,
+                        decision=decision,
+                    )
+                )
+                decision = review_result.decision
+            continue
 
-    if decision.decision == DecisionType.ESCALATE:
-        run.transition_to(WorkflowState.HUMAN_REVIEW)
-        if review_gate is not None:
-            decision = review_gate.run(
-                HumanReviewGateInput(
-                    decision=decision,
-                    match=match,
+        if stage == WorkflowState.DECISION:
+            evaluation_brief = build_evaluation_brief(plan, match, decision, signals)
+            output = WorkflowOutput(
+                input_summary=_input_summary(profile, job),
+                evaluation_brief=evaluation_brief,
+                decision=decision,
+                job_signals=signals,
+                recommended_next_steps=list(_NEXT_STEPS[decision.decision]),
+            )
+            run.complete(output)
+            return output, run
+
+        run.transition_to(stage)
+
+        if stage == WorkflowState.SIGNAL_EXTRACTION:
+            signals = extractor.run(
+                SignalExtractorInput(
+                    job_description=job,
+                    required_signals=plan.required_signals,
+                )
+            ).signals
+        elif stage == WorkflowState.PROFILE_MATCHING:
+            match = matcher.run(
+                ProfileMatcherInput(
+                    user_profile=profile,
+                    job_description=job,
                     signals=signals,
                 )
+            ).match
+        elif stage == WorkflowState.POLICY_EVALUATION:
+            decision = policy.run(
+                DecisionPolicyInput(match=match, signals=signals)
             ).decision
 
-    run.transition_to(WorkflowState.DECISION)
-
-    output = WorkflowOutput(
-        input_summary=_input_summary(profile, job),
-        decision=decision,
-        job_signals=signals,
-        recommended_next_steps=list(_NEXT_STEPS[decision.decision]),
-    )
-    run.complete(output)
-    return output, run
+    raise RuntimeError("Workflow plan did not include a decision stage.")
 
 
 def evaluate_workflow(
     workflow_input: WorkflowInput,
     *,
+    planner: WorkflowPlanner,
     extractor: SignalExtractor,
     matcher: ProfileMatcher,
     policy: DecisionPolicy,
     review_gate: HumanReviewGate | None = None,
+    plan: WorkflowPlan | None = None,
 ) -> WorkflowOutput:
     output, _ = run_workflow_evaluation(
         workflow_input,
+        planner=planner,
         extractor=extractor,
         matcher=matcher,
         policy=policy,
         review_gate=review_gate,
+        plan=plan,
     )
     return output

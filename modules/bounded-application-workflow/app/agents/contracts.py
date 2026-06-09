@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 
 from app.domain.job_signals import JobSignals
 from app.domain.models import (
+    EvaluationBrief,
     JobDescription,
     ProfileMatchResult,
     UserProfile,
@@ -11,13 +12,14 @@ from app.domain.models import (
     WorkflowInput,
     WorkflowOutput,
 )
-from app.domain.workflow_run import WorkflowRun
+from app.domain.workflow_run import WorkflowPlan, WorkflowRun
 
 
 class SignalExtractorInput(BaseModel):
     """Raw job description to parse into structured signals."""
 
     job_description: JobDescription
+    required_signals: list[str] = Field(default_factory=list)
 
 
 class SignalExtractorOutput(BaseModel):
@@ -66,11 +68,10 @@ class DecisionPolicy(Protocol):
 
 
 class HumanReviewGateInput(BaseModel):
-    """Escalated decision with evaluation context for human review."""
+    """Escalated decision with consolidated evaluation context."""
 
+    evaluation_brief: EvaluationBrief
     decision: WorkflowDecision
-    match: ProfileMatchResult
-    signals: JobSignals
 
 
 class HumanReviewGateOutput(BaseModel):
@@ -85,6 +86,20 @@ class HumanReviewGate(Protocol):
     """Pause execution for ambiguous or high-stakes decisions."""
 
     def run(self, agent_input: HumanReviewGateInput) -> HumanReviewGateOutput: ...
+
+
+class WorkflowPlannerInput(BaseModel):
+    workflow_input: WorkflowInput
+
+
+class WorkflowPlannerOutput(BaseModel):
+    plan: WorkflowPlan
+
+
+class WorkflowPlanner(Protocol):
+    """Derive evaluation focus and stage plan before execution."""
+
+    def run(self, agent_input: WorkflowPlannerInput) -> WorkflowPlannerOutput: ...
 
 
 class WorkflowOrchestratorInput(BaseModel):

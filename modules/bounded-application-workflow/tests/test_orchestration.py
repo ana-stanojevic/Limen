@@ -111,6 +111,44 @@ def test_run_workflow_evaluation_state_trace_for_escalate():
     assert run.is_complete is True
 
 
+def test_run_workflow_evaluation_records_generated_plan():
+    _, run = run_workflow_evaluation(load_workflow_input("strong_match.json"))
+
+    assert run.plan.stages
+    assert run.plan.evaluation_focus
+    assert run.plan.required_signals
+
+
+def test_run_workflow_evaluation_plan_includes_human_review_for_ambiguous():
+    _, run = run_workflow_evaluation(load_workflow_input("ambiguous_match.json"))
+
+    assert WorkflowState.HUMAN_REVIEW in run.plan.stages
+
+
+def test_run_workflow_evaluation_state_history_follows_plan():
+    _, run = run_workflow_evaluation(load_workflow_input("strong_match.json"))
+
+    assert run.state_history == run.plan.stages
+
+
+def test_run_workflow_evaluation_skips_human_review_when_not_escalated():
+    _, run = run_workflow_evaluation(load_workflow_input("strong_match.json"))
+
+    assert WorkflowState.HUMAN_REVIEW in run.plan.stages or (
+        WorkflowState.HUMAN_REVIEW not in run.state_history
+    )
+    assert WorkflowState.HUMAN_REVIEW not in run.state_history
+
+
+def test_run_workflow_output_includes_evaluation_brief():
+    output, _ = run_workflow_evaluation(load_workflow_input("ambiguous_match.json"))
+
+    assert output.evaluation_brief.evaluation_focus
+    assert output.evaluation_brief.findings
+    assert output.evaluation_brief.signal_highlights
+    assert output.evaluation_brief.decision == output.decision.decision
+
+
 def test_completed_workflow_run_is_inspectable():
     output, run = run_workflow_evaluation(load_workflow_input("strong_match.json"))
 

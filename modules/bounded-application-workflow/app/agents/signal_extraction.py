@@ -1,8 +1,8 @@
 import re
-from typing import Iterable
 
-from app.domain.job_signals import JobSignals
+from app.domain.job_signals import JobSignals, SignalCategory
 from app.domain.models import JobDescription
+from app.text import dedupe_strings, normalize_string
 
 PatternLabel = tuple[re.Pattern[str], str | None]
 
@@ -122,29 +122,6 @@ _EMPLOYMENT_TYPE_PATTERN = re.compile(
 )
 
 
-def _normalize_skill(skill: str) -> str:
-    return " ".join(skill.split())
-
-
-def _dedupe_skills(skills: Iterable[str]) -> list[str]:
-    seen: set[str] = set()
-    result: list[str] = []
-
-    for skill in skills:
-        normalized = _normalize_skill(skill)
-        if not normalized:
-            continue
-
-        key = normalized.casefold()
-        if key in seen:
-            continue
-
-        seen.add(key)
-        result.append(normalized)
-
-    return result
-
-
 def _skills_from_description(description: str) -> tuple[list[str], list[str]]:
     required: list[str] = []
     preferred: list[str] = []
@@ -170,42 +147,95 @@ def _signals_from_labeled_patterns(
 
     for pattern, label in patterns:
         for match in pattern.finditer(corpus):
-            signals.append(label or _normalize_skill(match.group(0)))
+            signals.append(label or normalize_string(match.group(0)))
 
     return signals
 
 
-def _seniority_signals_from_job(job: JobDescription) -> list[str]:
+def _core_seniority_signals(job: JobDescription, corpus: str) -> list[str]:
+    """Seniority level signals from structured fields and posting text."""
     signals: list[str] = []
 
     if job.seniority:
         signals.append(job.seniority)
 
-    corpus = _job_corpus(job)
     for match in _YEARS_EXPERIENCE_PATTERN.finditer(corpus):
-        signals.append(_normalize_skill(match.group(0)))
+        signals.append(normalize_string(match.group(0)))
 
     for match in _SENIORITY_LEVEL_PATTERN.finditer(corpus):
-        signals.append(_normalize_skill(match.group(0)))
+        signals.append(normalize_string(match.group(0)))
 
-    description_required, description_preferred = _skills_from_description(job.description)
+    return signals
+
+
+def _ownership_signals_from_job(job: JobDescription, corpus: str) -> list[str]:
+    signals: list[str] = []
+    description_required, description_preferred = _skills_from_description(
+        job.description
+    )
+
     for skill in [*description_required, *description_preferred]:
         if "ownership" in skill.casefold():
             signals.append(skill)
 
     signals.extend(_signals_from_labeled_patterns(corpus, _OWNERSHIP_PATTERNS))
+    return signals
 
-    return _dedupe_skills(signals)
+
+_SIGNAL_CATEGORY_FIELDS: dict[str, str] = {
+    SignalCategory.REQUIRED_SKILLS.value: "required_skills",
+    SignalCategory.PREFERRED_SKILLS.value: "preferred_skills",
+    SignalCategory.SENIORITY.value: "seniority_signals",
+    SignalCategory.PRODUCTION_EXPECTATIONS.value: "production_expectations",
+    SignalCategory.RISK_INDICATORS.value: "risk_indicators",
+    SignalCategory.MISSING_SIGNALS.value: "missing_signals",
+}
+
+
+def focus_job_signals(
+    signals: JobSignals, required_categories: list[str]
+) -> dict[str, list[str]]:
+    """Return only the signal categories the plan marked as required."""
+    highlights: dict[str, list[str]] = {}
+    for category in required_categories:
+        field = _SIGNAL_CATEGORY_FIELDS.get(category)
+        if field is None:
+            continue
+        values = getattr(signals, field)
+        if values:
+            highlights[category] = list(values)
+    return highlights
+
+
+def seniority_level_is_unclear(job: JobDescription) -> bool:
+    """True when the posting lacks a seniority level, not ownership signals."""
+    return not _core_seniority_signals(job, _job_corpus(job))
+
+
+def has_explicit_missing_signal_phrases(job: JobDescription) -> bool:
+    return bool(
+        _signals_from_labeled_patterns(_job_corpus(job), _MISSING_PATTERNS)
+    )
+
+
+def _seniority_signals_from_job(job: JobDescription) -> list[str]:
+    corpus = _job_corpus(job)
+    return dedupe_strings(
+        [
+            *_core_seniority_signals(job, corpus),
+            *_ownership_signals_from_job(job, corpus),
+        ]
+    )
 
 
 def _production_expectations_from_job(job: JobDescription) -> list[str]:
-    return _dedupe_skills(
+    return dedupe_strings(
         _signals_from_labeled_patterns(_job_corpus(job), _PRODUCTION_PATTERNS)
     )
 
 
 def _risk_indicators_from_job(job: JobDescription) -> list[str]:
-    return _dedupe_skills(
+    return dedupe_strings(
         _signals_from_labeled_patterns(_job_corpus(job), _RISK_PATTERNS)
     )
 
@@ -222,11 +252,7 @@ def _missing_signals_from_job(job: JobDescription) -> list[str]:
 
     missing.extend(_signals_from_labeled_patterns(corpus, _MISSING_PATTERNS))
 
-    if (
-        not job.seniority
-        and not _SENIORITY_LEVEL_PATTERN.search(corpus)
-        and not _YEARS_EXPERIENCE_PATTERN.search(corpus)
-    ):
+    if seniority_level_is_unclear(job):
         missing.append("seniority level")
 
     if not _has_remote_policy(job, corpus):
@@ -241,7 +267,7 @@ def _missing_signals_from_job(job: JobDescription) -> list[str]:
     if not job.employment_type and not _EMPLOYMENT_TYPE_PATTERN.search(corpus):
         missing.append("employment type")
 
-    return _dedupe_skills(missing)
+    return dedupe_strings(missing)
 
 
 def extract_job_signals(job: JobDescription) -> JobSignals:
@@ -249,12 +275,12 @@ def extract_job_signals(job: JobDescription) -> JobSignals:
         job.description
     )
 
-    required_skills = _dedupe_skills(description_required)
+    required_skills = dedupe_strings(description_required)
     required_keys = {skill.casefold() for skill in required_skills}
 
     preferred_skills = [
         skill
-        for skill in _dedupe_skills(description_preferred)
+        for skill in dedupe_strings(description_preferred)
         if skill.casefold() not in required_keys
     ]
 
