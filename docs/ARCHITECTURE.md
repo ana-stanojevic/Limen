@@ -51,13 +51,40 @@ Each state has a defined entry condition, responsible agent, and output contract
 
 | Stage | Agent | Input | Output |
 | ----- | ----- | ----- | ------ |
-| signal_extraction | Signal Extractor | raw job description | `JobSignals` |
-| profile_matching | Profile Matcher | `JobSignals` + `UserProfile` | `ProfileMatchResult` |
-| policy_evaluation | Decision Policy | `ProfileMatchResult` | `WorkflowDecision` |
-| human_review | Human Review Gate | escalated `WorkflowDecision` | approved or revised decision |
+| planning | Workflow Planner | `WorkflowInput` | `WorkflowPlan` |
+| signal_extraction | Signal Extractor | job description + `plan.required_signals` | `JobSignals` |
+| profile_matching | Profile Matcher | `JobSignals` + `UserProfile` + `plan.required_signals` | `ProfileMatchResult` |
+| policy_evaluation | Decision Policy | `ProfileMatchResult` + `JobSignals` + `WorkflowPlan` | `WorkflowDecision` |
+| human_review | Human Review Gate | escalated `WorkflowDecision` + `EvaluationBrief` | approved or revised decision |
 | orchestration | Workflow Orchestrator | workflow input | state-managed `WorkflowOutput` |
 
-Planning (what to evaluate, which signals matter) is separated from execution (running agents, applying policy, emitting decisions).
+Planning (what to evaluate, which signals matter, which guardrails apply) is separated from execution (running agents, applying policy, emitting decisions). The plan is the single source of truth for evaluation scope and policy guardrails; downstream stages read from it rather than re-deriving the same heuristics.
+
+## Plan → Execution Flow
+
+The planner runs once before the stage loop. Every downstream stage consumes fields from `WorkflowPlan`:
+
+- `required_signals` — which signal categories to extract, score, and highlight
+- `evaluation_focus` — what the evaluation brief emphasizes
+- `requires_risk_guardrail` — whether a strong match should be downgraded to escalate
+- `requires_human_review` — whether the pipeline includes a human review checkpoint
+- `stages` — ordered workflow states the orchestrator executes
+
+```mermaid
+flowchart TD
+    P[Planner: build_workflow_plan] --> Plan[WorkflowPlan]
+    Plan --> E[Signal Extraction]
+    Plan --> M[Profile Matching]
+    Plan --> D[Decision Policy]
+    Plan --> H[Human Review Gate]
+    Plan --> B[Evaluation Brief]
+
+    E -->|"required_signals"| M
+    M --> D
+    D -->|"requires_risk_guardrail"| H
+```
+
+The human review gate runs only when the plan reserved that stage **and** the policy produced an `ESCALATE` decision. The final decision always comes from policy evaluation at runtime; the plan configures *how* to evaluate, not *what* the match score will be.
 
 ## Milestone 3 Deliverables
 

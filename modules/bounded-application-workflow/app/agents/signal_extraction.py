@@ -270,7 +270,66 @@ def _missing_signals_from_job(job: JobDescription) -> list[str]:
     return dedupe_strings(missing)
 
 
-def extract_job_signals(job: JobDescription) -> JobSignals:
+def extract_job_signals(
+    job: JobDescription,
+    required_categories: list[str] | None = None,
+) -> JobSignals:
+    """Extract job signals, optionally scoped to the categories the plan requires."""
+    if not required_categories:
+        return _extract_all_job_signals(job)
+
+    required = set(required_categories)
+    extract_skills = (
+        SignalCategory.REQUIRED_SKILLS.value in required
+        or SignalCategory.PREFERRED_SKILLS.value in required
+    )
+
+    required_skills: list[str] = []
+    preferred_skills: list[str] = []
+    if extract_skills:
+        description_required, description_preferred = _skills_from_description(
+            job.description
+        )
+        required_skills = dedupe_strings(description_required)
+        required_keys = {skill.casefold() for skill in required_skills}
+        preferred_skills = [
+            skill
+            for skill in dedupe_strings(description_preferred)
+            if skill.casefold() not in required_keys
+        ]
+
+    seniority_signals = (
+        _seniority_signals_from_job(job)
+        if SignalCategory.SENIORITY.value in required
+        else []
+    )
+    production_expectations = (
+        _production_expectations_from_job(job)
+        if SignalCategory.PRODUCTION_EXPECTATIONS.value in required
+        else []
+    )
+    risk_indicators = (
+        _risk_indicators_from_job(job)
+        if SignalCategory.RISK_INDICATORS.value in required
+        else []
+    )
+    missing_signals = (
+        _missing_signals_from_job(job)
+        if SignalCategory.MISSING_SIGNALS.value in required
+        else []
+    )
+
+    return JobSignals(
+        required_skills=required_skills,
+        preferred_skills=preferred_skills,
+        seniority_signals=seniority_signals,
+        production_expectations=production_expectations,
+        risk_indicators=risk_indicators,
+        missing_signals=missing_signals,
+    )
+
+
+def _extract_all_job_signals(job: JobDescription) -> JobSignals:
     description_required, description_preferred = _skills_from_description(
         job.description
     )

@@ -87,6 +87,6 @@ Python versions tested in CI: 3.11, 3.12, 3.13.
 Core product and architecture documentation lives in the root documentation folder:
 
 - [`../../docs/PRD.md`](../../docs/PRD.md)
-- [`../../docs/ARCHITECTURE.md`](../../docs/ARCHITECTURE.md)
+- [`../../docs/ARCHITECTURE.md`](../../docs/ARCHITECTURE.md) — includes the plan → execution flow diagram for Milestone 3
 - [`../../docs/ROADMAP.md`](../../docs/ROADMAP.md)
 
