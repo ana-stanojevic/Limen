@@ -100,101 +100,151 @@ Focus:
 - evaluate opportunity
 - show score, decision, missing signals, risks, and reasoning summary
 
-## Milestone 6 — Evaluation & Reliability
+## Milestone 6 — Early Reliability Baseline
 
-Build confidence that workflow decisions are consistent, observable, and measurable.
+Establish the minimum observability and validation needed before LLM-backed agents and tool use go into production.
 
-## Goal
+Focus:
 
-Move from a working prototype to an engineering-grade AI system.
+- schema validation for all agent outputs
+- basic execution tracing and workflow event logging
+- prompt version tracking
+- initial benchmark fixtures
 
-The system should not only produce decisions, but also provide evidence that those decisions are reliable.
+Done when:
 
-## Focus
+- all agent outputs pass Pydantic validation before entering the workflow
+- workflow runs are inspectable through `WorkflowRun` events
+- prompt and model configs are versioned
+- a starter benchmark set exists for regression checks
 
-### Evaluation Dataset
+The full evaluation program continues in Milestone 9.
 
-Create a benchmark set of job opportunities with expected outcomes.
+## Milestone 7 — Retrieval & Tooling Layer
 
-Examples:
+Introduce tool-use and retrieval as first-class workflow capabilities.
 
-- strong fit → PREPARE
-- uncertain fit → ESCALATE
-- weak fit → SKIP
-- later opportunity → QUEUE
+Focus:
 
-### Automated Evaluation
+- tool registry
+- tool contracts
+- retriever abstraction
+- vector search
+- knowledge sources
+- tool selection policies
+- structured tool invocation
 
-Measure decision quality against benchmark data.
+Done when:
 
-Track:
+- agents can invoke tools through typed contracts
+- tool calls are typed and schema-validated
+- retrieval is separated from agent logic
+- tool outputs are validated before use
+- tool execution is auditable
 
-- decision accuracy
-- false positives
-- false negatives
-- escalation rate
+## Milestone 8 — Agent Memory & Context Management
 
-### Structured Outputs
+Give agents controlled access to prior step results and durable context.
 
-Ensure all AI-generated outputs follow validated schemas.
+This is the point where the system starts to behave like a serious agent platform rather than a single-pass pipeline.
 
-Examples:
+Focus:
 
-- extracted signals
-- risk indicators
-- opportunity summaries
-- workflow decisions
+- short-term memory
+- artifacts
+- context windows
+- working memory
+- memory persistence
+- memory pruning
 
-### Prompt Versioning
+Done when:
 
-Treat prompts as production assets.
+- agents can use results from previous workflow steps
+- context size and scope are explicitly controlled
+- memory can be reconstructed from `WorkflowRun`
 
-Track:
+## Milestone 9 — Evaluation & Reliability
 
-- prompt versions
-- changes
-- evaluation results per version
+Build a dedicated evaluation layer so quality, regressions, and failures are measurable engineering concerns — not ad-hoc manual checks.
 
-### Observability
+Focus:
 
-Make workflow execution transparent.
+- golden datasets
+- agent evals
+- workflow evals
+- regression tests
+- confidence scoring
+- fallback policies
+- failure analysis
+- cost tracking
 
-Capture:
+Done when:
 
-- execution traces
-- workflow state transitions
-- model responses
-- decision rationale
-- failure events
+- every change can be measured against benchmarks
+- quality has explicit metrics
+- prompts have a regression suite
+- agent failures are classified and actionable
 
-### Reliability Testing
+## Milestone 10 — Multi-Agent Collaboration
 
-Evaluate behavior under difficult conditions.
+Multiple specialized agents collaborate under orchestrator control.
 
-Examples:
+This is what people usually imagine when they say "agent system."
 
-- incomplete job descriptions
-- contradictory requirements
-- missing user information
-- malformed inputs
+Focus:
 
-### Benchmark Reports
+- planner agent
+- executor agent
+- critic agent
+- review agent
+- agent handoffs
+- shared artifacts
 
-Generate evaluation reports after major changes.
+Done when:
 
-Report:
+- multiple agents collaborate on a single workflow run
+- agent responsibilities are isolated behind contracts
+- the orchestrator manages handoffs and shared state
 
-- benchmark results
-- decision distribution
-- regression detection
-- notable failures
+## Milestone 11 — Learning & Policy Adaptation
 
-## Done When
+Close the loop between outcomes and future decisions.
 
-- benchmark dataset exists
-- evaluation can run automatically
-- all outputs are schema validated
-- workflow execution is observable
-- prompt changes are measurable
-- regressions are detectable before deployment
+This corresponds to the feedback and adaptation layer in the system architecture.
+
+Focus:
+
+- outcome tracking
+- policy tuning
+- threshold adaptation
+- feedback loops
+- decision calibration
+
+Done when:
+
+- outcomes influence future decisions
+- ranking changes through feedback
+- escalation policy adapts based on observed results
+
+## Milestone 12 — Production AI Platform
+
+Operate the workflow as a production-grade AI platform with full observability, reproducibility, and experimentation support.
+
+Focus:
+
+- observability dashboards
+- cost monitoring
+- latency monitoring
+- trace explorer
+- run replay
+- versioned workflows
+- versioned prompts
+- A/B testing
+
+Done when:
+
+- any workflow run can be reproduced
+- every decision can be explained from trace data
+- any run can be replayed
+- model or prompt changes can be compared through controlled experiments
 
