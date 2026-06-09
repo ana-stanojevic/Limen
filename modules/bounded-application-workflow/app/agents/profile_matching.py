@@ -1,7 +1,7 @@
 import re
 from typing import Iterable
 
-from app.domain.job_signals import JobSignals
+from app.domain.job_signals import JobSignals, SignalCategory
 from app.domain.models import JobDescription, ProfileMatchResult, UserProfile
 
 _TOKEN_PATTERN = re.compile(r"[a-z0-9]+")
@@ -330,11 +330,51 @@ def _assess_production_alignment(
     return reasons, risks
 
 
+def _score_weights(required_signals: list[str] | None) -> dict[str, float]:
+    weights = {
+        "required": _REQUIRED_WEIGHT,
+        "preferred": _PREFERRED_WEIGHT,
+        "role": _ROLE_WEIGHT,
+        "production": _PRODUCTION_WEIGHT,
+        "seniority": _SENIORITY_WEIGHT,
+    }
+    if not required_signals:
+        return weights
+
+    required = set(required_signals)
+    active: dict[str, float] = {"role": _ROLE_WEIGHT}
+    if SignalCategory.REQUIRED_SKILLS.value in required:
+        active["required"] = _REQUIRED_WEIGHT
+    if SignalCategory.PREFERRED_SKILLS.value in required:
+        active["preferred"] = _PREFERRED_WEIGHT
+    if SignalCategory.PRODUCTION_EXPECTATIONS.value in required:
+        active["production"] = _PRODUCTION_WEIGHT
+    if SignalCategory.SENIORITY.value in required:
+        active["seniority"] = _SENIORITY_WEIGHT
+
+    total = sum(active.values())
+    return {name: weight / total for name, weight in active.items()}
+
+
 def match_profile_to_job(
     user_profile: UserProfile,
     job_description: JobDescription,
     signals: JobSignals,
+    *,
+    required_signals: list[str] | None = None,
 ) -> ProfileMatchResult:
+    weights = _score_weights(required_signals)
+    required = set(required_signals or [])
+    include_production = (
+        not required_signals
+        or SignalCategory.PRODUCTION_EXPECTATIONS.value in required
+    )
+    include_seniority = (
+        not required_signals or SignalCategory.SENIORITY.value in required
+    )
+    include_risk = (
+        not required_signals or SignalCategory.RISK_INDICATORS.value in required
+    )
     required_matched, required_missing = _partition_skills(
         user_profile, signals.required_skills
     )
@@ -354,18 +394,24 @@ def match_profile_to_job(
     production_matched, production_missing = _partition_production_expectations(
         user_profile, signals.production_expectations
     )
-    production_ratio = _production_alignment_ratio(signals, production_matched)
-    seniority_ratio = _seniority_alignment_ratio(
-        user_profile, job_description, signals
+    production_ratio = (
+        _production_alignment_ratio(signals, production_matched)
+        if include_production
+        else 1.0
+    )
+    seniority_ratio = (
+        _seniority_alignment_ratio(user_profile, job_description, signals)
+        if include_seniority
+        else 1.0
     )
 
     score = min(
         1.0,
-        _REQUIRED_WEIGHT * required_ratio
-        + _PREFERRED_WEIGHT * preferred_ratio
-        + _ROLE_WEIGHT * role_ratio
-        + _PRODUCTION_WEIGHT * production_ratio
-        + _SENIORITY_WEIGHT * seniority_ratio,
+        weights.get("required", 0.0) * required_ratio
+        + weights.get("preferred", 0.0) * preferred_ratio
+        + weights.get("role", 0.0) * role_ratio
+        + weights.get("production", 0.0) * production_ratio
+        + weights.get("seniority", 0.0) * seniority_ratio,
     )
 
     reasons: list[str] = []
@@ -393,20 +439,24 @@ def match_profile_to_job(
 
     seniority_reasons, seniority_risks, severe_seniority_mismatch = (
         _assess_seniority_alignment(user_profile, job_description, signals)
+        if include_seniority
+        else ([], [], False)
     )
     reasons.extend(seniority_reasons)
     risks.extend(seniority_risks)
 
-    production_reasons, production_risks = _assess_production_alignment(
-        signals,
-        production_matched,
-        production_missing,
-    )
-    reasons.extend(production_reasons)
-    risks.extend(production_risks)
+    if include_production:
+        production_reasons, production_risks = _assess_production_alignment(
+            signals,
+            production_matched,
+            production_missing,
+        )
+        reasons.extend(production_reasons)
+        risks.extend(production_risks)
 
-    for indicator in signals.risk_indicators:
-        risks.append(f"Job posting risk: {indicator}")
+    if include_risk:
+        for indicator in signals.risk_indicators:
+            risks.append(f"Job posting risk: {indicator}")
 
     return ProfileMatchResult(
         score=round(score, 2),
