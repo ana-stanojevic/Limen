@@ -67,18 +67,35 @@ Planning (what to evaluate, which signals matter) is separated from execution (r
 - human review integration on escalation paths
 - observable state transitions and decision chains
 
+## Later Milestones (4–12)
+
+| Milestone | Theme |
+| --------- | ----- |
+| 4 | LLM-backed agent runtime |
+| 5 | User-facing demo |
+| 6 | Early reliability baseline |
+| 7 | Retrieval & tooling layer |
+| 8 | Agent memory & context management |
+| 9 | Evaluation & reliability |
+| 10 | Multi-agent collaboration |
+| 11 | Learning & policy adaptation |
+| 12 | Production AI platform |
+
+Full definitions: [`ROADMAP.md`](./ROADMAP.md).
+
 ---
 
 # Future Iterations
 
 Later milestones introduce:
 
-- memory systems,
-- retrieval-augmented evaluation,
-- tool-using agents,
-- browser automation agents,
-- asynchronous task coordination,
-- evaluation and self-critique loops.
+- LLM-backed agents with typed fallbacks (Milestone 4),
+- retrieval and tool-use layers (Milestone 7),
+- agent memory and context management (Milestone 8),
+- evaluation and reliability at scale (Milestone 9),
+- multi-agent collaboration (Milestone 10),
+- learning and policy adaptation (Milestone 11),
+- production platform observability and replay (Milestone 12).
 
 The system is intentionally designed to evolve toward production-grade agentic workflows rather than simple prompt-response interactions.
 

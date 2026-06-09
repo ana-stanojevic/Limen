@@ -48,7 +48,9 @@ Focus:
 - introduce human review points
 - keep decisions observable and auditable
 
-See the full roadmap: [`../../docs/ROADMAP.md`](../../docs/ROADMAP.md).
+Later milestones introduce retrieval, tool use, agent memory, multi-agent collaboration, evaluation at scale, policy adaptation, and production platform capabilities.
+
+See the full sequence in [`../../docs/ROADMAP.md`](../../docs/ROADMAP.md) (Milestones 4–12).
 
 ## System Boundary
 
