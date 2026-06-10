@@ -9,6 +9,7 @@ from app.domain.models import (
     WorkflowOutput,
 )
 from app.domain.workflow_run import (
+    AgentTrace,
     WorkflowEvent,
     WorkflowEventType,
     WorkflowPlan,
@@ -23,6 +24,7 @@ from app.domain.workflow_state import (
 )
 
 __all__ = [
+    "AgentTrace",
     "DecisionType",
     "InvalidTransitionError",
     "JobDescription",

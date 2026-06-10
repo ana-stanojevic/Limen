@@ -64,17 +64,43 @@ def test_invalid_state_transition(current: WorkflowState, target: WorkflowState)
     assert machine.current_state == current
 
 
-def test_workflow_run_records_transition():
-    run = WorkflowRun(
+def _new_run() -> WorkflowRun:
+    return WorkflowRun(
         input=workflow_input("strong_match.json"),
         plan=default_workflow_plan(),
     )
+
+
+def test_workflow_run_records_transition():
+    run = _new_run()
 
     run.transition_to(WorkflowState.SIGNAL_EXTRACTION, "extracting signals")
 
     assert run.current_state == WorkflowState.SIGNAL_EXTRACTION
     assert run.events[-1].event_type == WorkflowEventType.STATE_ENTERED
     assert run.events[-1].message == "extracting signals"
+
+
+def test_record_plan_logs_planner_decision():
+    event = _new_run().record_plan()
+
+    assert event.event_type == WorkflowEventType.PLAN_CREATED
+    assert "signal_extraction" in event.message
+
+
+def test_record_agent_trace_keeps_output_inspectable():
+    run = _new_run()
+    run.transition_to(WorkflowState.SIGNAL_EXTRACTION)
+    signals = JobSignals(risk_indicators=["equity-only compensation"])
+
+    trace = run.record_agent_trace("extractor", signals)
+
+    assert run.traces == [trace]
+    assert trace.stage == WorkflowState.SIGNAL_EXTRACTION
+    assert trace.agent == "extractor"
+    assert trace.output["risk_indicators"] == ["equity-only compensation"]
+    assert run.events[-1].event_type == WorkflowEventType.AGENT_COMPLETED
+    assert run.events[-1].timestamp == trace.timestamp
 
 
 def test_default_workflow_plan():
@@ -160,6 +186,8 @@ def test_request_review_stores_pending_record():
     assert run.review is record
     assert record.reason == "Risky posting."
     assert record.is_pending is True
+    assert run.events[-1].event_type == WorkflowEventType.REVIEW_REQUESTED
+    assert run.events[-1].message == "Risky posting."
 
 
 def test_request_review_outside_review_state_raises():
