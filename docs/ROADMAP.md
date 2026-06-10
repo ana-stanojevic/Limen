@@ -8,7 +8,7 @@ Executable evaluation workflow: I/O contract, job parsing, profile matching, dec
 
 Structured signals from job descriptions and profiles: skills, seniority, production expectations, ambiguity/risk, missing signals. Matcher and extractor covered by tests.
 
-## Milestone 3 — Agentic Workflow Layer — in progress
+## Milestone 3 — Agentic Workflow Layer — completed
 
 Bounded agentic orchestration: planning/execution separation, agent contracts, explicit workflow states, human review on escalation, auditable transitions.
 
