@@ -66,25 +66,32 @@ def run_workflow_evaluation(
         WorkflowState.INTAKE,
         "Workflow run started.",
     )
+    run.record_plan()
 
     run.transition_to(WorkflowState.SIGNAL_EXTRACTION)
-    signals = extractor.run(
+    extractor_output = extractor.run(
         SignalExtractorInput(job_description=job)
-    ).signals
+    )
+    run.record_agent_trace(type(extractor).__name__, extractor_output)
+    signals = extractor_output.signals
 
     run.transition_to(WorkflowState.PROFILE_MATCHING)
-    match = matcher.run(
+    matcher_output = matcher.run(
         ProfileMatcherInput(
             user_profile=profile,
             job_description=job,
             signals=signals,
         )
-    ).match
+    )
+    run.record_agent_trace(type(matcher).__name__, matcher_output)
+    match = matcher_output.match
 
     run.transition_to(WorkflowState.POLICY_EVALUATION)
-    decision = policy.run(
+    policy_output = policy.run(
         DecisionPolicyInput(match=match, signals=signals)
-    ).decision
+    )
+    run.record_agent_trace(type(policy).__name__, policy_output)
+    decision = policy_output.decision
 
     if decision.decision == DecisionType.ESCALATE:
         reason = review_reason(decision)
@@ -99,6 +106,7 @@ def run_workflow_evaluation(
                     reason=reason,
                 )
             )
+            run.record_agent_trace(type(review_gate).__name__, gate_output)
             review = run.resolve_review(
                 final_decision=gate_output.decision,
                 approved=gate_output.approved,

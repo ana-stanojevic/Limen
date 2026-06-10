@@ -183,3 +183,61 @@ def test_orchestrator_returns_inspectable_run():
     assert run.events[0].event_type == WorkflowEventType.RUN_STARTED
     assert run.events[-1].event_type == WorkflowEventType.RUN_COMPLETED
     assert run.model_dump()["output"]["decision"]["decision"] == result.output.decision.decision.value
+
+
+def test_run_logs_planner_decision_and_agent_outputs():
+    _, run = run_workflow_evaluation(workflow_input("strong_match.json"))
+
+    assert run.events[1].event_type == WorkflowEventType.PLAN_CREATED
+    assert "intake -> signal_extraction" in run.events[1].message
+
+    assert [(trace.stage, trace.agent) for trace in run.traces] == [
+        (WorkflowState.SIGNAL_EXTRACTION, "DefaultSignalExtractor"),
+        (WorkflowState.PROFILE_MATCHING, "DefaultProfileMatcher"),
+        (WorkflowState.POLICY_EVALUATION, "DefaultDecisionPolicy"),
+    ]
+    matcher_trace, policy_trace = run.traces[1], run.traces[2]
+    assert policy_trace.output["decision"]["decision"] == DecisionType.PREPARE
+    # The policy decision's score is traceable back to the matcher's output.
+    assert policy_trace.output["decision"]["score"] == matcher_trace.output["match"]["score"]
+
+
+def test_escalated_run_decision_is_traceable():
+    output, run = run_workflow_evaluation(_escalating_workflow())
+
+    # execution_trace() chains every agent invocation plus the final decision.
+    chain = run.execution_trace()
+    assert [trace.stage for trace in chain] == [
+        WorkflowState.SIGNAL_EXTRACTION,
+        WorkflowState.PROFILE_MATCHING,
+        WorkflowState.POLICY_EVALUATION,
+        WorkflowState.HUMAN_REVIEW,
+        WorkflowState.DECISION,
+    ]
+    assert chain[3].agent == "PassthroughHumanReviewGate"
+    assert chain[-1].agent == "workflow"
+    assert chain[-1].output["decision"] == output.decision.decision
+    assert chain[-1].timestamp == run.completed_at
+
+    event_types = [event.event_type for event in run.events]
+    assert event_types.index(WorkflowEventType.REVIEW_REQUESTED) < event_types.index(
+        WorkflowEventType.REVIEW_COMPLETED
+    )
+
+
+def test_workflow_history_serializable_after_execution():
+    _, run = run_workflow_evaluation(_escalating_workflow())
+
+    dumped = run.model_dump(mode="json")
+
+    assert dumped["events"][0]["event_type"] == "run_started"
+    assert dumped["events"][-1]["event_type"] == "run_completed"
+    assert [trace["stage"] for trace in dumped["traces"]] == [
+        "signal_extraction",
+        "profile_matching",
+        "policy_evaluation",
+        "human_review",
+    ]
+    # Traces store only agent outputs; the raw posting lives once on run.input.
+    description = run.input.job_description.description
+    assert all(description not in str(trace["output"]) for trace in dumped["traces"])

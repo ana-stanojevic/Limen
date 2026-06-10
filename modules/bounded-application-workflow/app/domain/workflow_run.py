@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Optional
+from typing import Any, Optional
 from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, computed_field
@@ -12,7 +12,10 @@ from app.domain.workflow_state import InvalidTransitionError, WorkflowState
 
 class WorkflowEventType(str, Enum):
     RUN_STARTED = "run_started"
+    PLAN_CREATED = "plan_created"
     STATE_ENTERED = "state_entered"
+    AGENT_COMPLETED = "agent_completed"
+    REVIEW_REQUESTED = "review_requested"
     REVIEW_COMPLETED = "review_completed"
     RUN_COMPLETED = "run_completed"
 
@@ -22,6 +25,20 @@ class WorkflowEvent(BaseModel):
     state: WorkflowState
     timestamp: datetime
     message: str = ""
+
+
+class AgentTrace(BaseModel):
+    """Inspectable record of a single agent invocation within a run.
+
+    Only the output is stored: agent inputs are either the run input or a
+    prior stage's output, so the chain stays reconstructable without
+    duplicating data on the run.
+    """
+
+    stage: WorkflowState
+    agent: str
+    output: dict[str, Any]
+    timestamp: datetime
 
 
 class HumanReviewRecord(BaseModel):
@@ -87,6 +104,7 @@ class WorkflowRun(BaseModel):
     review: Optional[HumanReviewRecord] = None
     plan_report: Optional[PlanExecutionReport] = None
     events: list[WorkflowEvent] = Field(default_factory=list)
+    traces: list[AgentTrace] = Field(default_factory=list)
     started_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     completed_at: Optional[datetime] = None
 
@@ -137,6 +155,55 @@ class WorkflowRun(BaseModel):
         self.record_event(WorkflowEventType.STATE_ENTERED, target, message)
         return target
 
+    def record_plan(self) -> WorkflowEvent:
+        """Log the planner's decision as part of the run's event history."""
+        planned = " -> ".join(stage.value for stage in self.plan.stages)
+        return self.record_event(
+            WorkflowEventType.PLAN_CREATED,
+            self.current_state,
+            f"Planner selected stages: {planned}.",
+        )
+
+    def record_agent_trace(self, agent: str, agent_output: BaseModel) -> AgentTrace:
+        """Store an agent's output so the invocation stays inspectable.
+
+        The paired AGENT_COMPLETED event marks the timeline; the trace
+        holds the payload. Both share one timestamp so they correlate.
+        """
+        timestamp = datetime.now(timezone.utc)
+        trace = AgentTrace(
+            stage=self.current_state,
+            agent=agent,
+            output=agent_output.model_dump(),
+            timestamp=timestamp,
+        )
+        self.traces.append(trace)
+        self.record_event(
+            WorkflowEventType.AGENT_COMPLETED,
+            self.current_state,
+            f"Agent '{agent}' completed.",
+            timestamp=timestamp,
+        )
+        return trace
+
+    def execution_trace(self) -> list[AgentTrace]:
+        """Full debug trace: every agent invocation plus the final decision.
+
+        Derived from `traces` and `output`; the final link reuses the run's
+        completion timestamp.
+        """
+        trace = list(self.traces)
+        if self.output is not None and self.completed_at is not None:
+            trace.append(
+                AgentTrace(
+                    stage=WorkflowState.DECISION,
+                    agent="workflow",
+                    output=self.output.decision.model_dump(),
+                    timestamp=self.completed_at,
+                )
+            )
+        return trace
+
     def request_review(
         self, reason: str, decision: WorkflowDecision
     ) -> HumanReviewRecord:
@@ -152,6 +219,11 @@ class WorkflowRun(BaseModel):
             reason=reason,
             original_decision=decision,
             requested_at=datetime.now(timezone.utc),
+        )
+        self.record_event(
+            WorkflowEventType.REVIEW_REQUESTED,
+            WorkflowState.HUMAN_REVIEW,
+            reason,
         )
         return self.review
 
@@ -211,6 +283,7 @@ class WorkflowRun(BaseModel):
 
 
 __all__ = [
+    "AgentTrace",
     "HumanReviewRecord",
     "InvalidTransitionError",
     "PlanExecutionReport",
