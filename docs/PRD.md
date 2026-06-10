@@ -6,7 +6,7 @@ Evaluates whether a professional opportunity is worth pursuing from structured s
 
 Supports deliberate, high-quality career decisions — not application volume or autonomous actions. First executable Limen module.
 
-**Phase:** Milestone 3 — Agentic Workflow Layer (Milestones 1–2 complete). See [ARCHITECTURE.md](./ARCHITECTURE.md) for workflow states and agent boundaries.
+**Phase:** Milestone 4 — LLM-Backed Agent Runtime (Milestones 1–3 complete). See [ARCHITECTURE.md](./ARCHITECTURE.md) for workflow states and agent boundaries.
 
 ---
 
@@ -30,11 +30,11 @@ The module **evaluates** (prepare, queue, skip, escalate). It does **not** apply
 
 ---
 
-## Milestone 3 — Agentic Workflow Layer (current)
+## Milestone 3 — Agentic Workflow Layer (delivered)
 
-Evolve the engine into bounded agentic orchestration with explicit states, specialized agents, and human oversight.
+Evolved the engine into bounded agentic orchestration with explicit states, specialized agents, and human oversight.
 
-**Requirements:**
+**Requirements (all met):**
 
 - planning and execution are separate stages
 - each agent has a defined input/output contract
@@ -102,7 +102,7 @@ LLM-backed agents: Milestone 4. Implementation details: [module README](../modul
 
 **Milestones 1–2:** core evaluation engine shipped.
 
-**Milestone 3:** explicit logged states · planning/execution separation · human review on escalation · inspectable transitions · foundation for user-facing demo (Milestone 5).
+**Milestone 3:** delivered — explicit logged states · planning/execution separation · human review on escalation · inspectable transitions · foundation for user-facing demo (Milestone 5).
 
 ---
 

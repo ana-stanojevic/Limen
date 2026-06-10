@@ -8,7 +8,7 @@ Limen is a modular career platform for deliberate professional decisions — opp
 
 **[Bounded Application Workflow](modules/bounded-application-workflow/)** — evaluates job opportunities against a user profile and returns a bounded decision (`prepare`, `queue`, `skip`, `escalate`). Human-controlled; no autonomous applications.
 
-**Phase:** Milestone 3 — Agentic Workflow Layer (Milestones 1–2 complete).
+**Phase:** Milestone 4 — LLM-Backed Agent Runtime (Milestones 1–3 complete).
 
 ## Principles
 
