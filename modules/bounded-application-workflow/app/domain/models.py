@@ -79,19 +79,8 @@ class WorkflowDecision(BaseModel):
     missing_information: List[str] = Field(default_factory=list)
 
 
-class EvaluationBrief(BaseModel):
-    """Single consolidated view for human review and API consumers."""
-
-    evaluation_focus: List[str] = Field(default_factory=list)
-    signal_highlights: dict[str, List[str]] = Field(default_factory=dict)
-    findings: List[str] = Field(default_factory=list)
-    decision: DecisionType
-    score: float = Field(ge=0.0, le=1.0)
-
-
 class WorkflowOutput(BaseModel):
     input_summary: str
-    evaluation_brief: EvaluationBrief
     decision: WorkflowDecision
     job_signals: JobSignals
     recommended_next_steps: List[str] = Field(default_factory=list)

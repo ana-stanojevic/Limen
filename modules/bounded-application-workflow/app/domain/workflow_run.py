@@ -24,13 +24,11 @@ class WorkflowEvent(BaseModel):
 
 
 class WorkflowPlan(BaseModel):
-    """Describes intended workflow stages and policy guardrails before execution."""
+    """Describes intended workflow stages before execution."""
 
     stages: list[WorkflowState] = Field(default_factory=list)
     evaluation_focus: list[str] = Field(default_factory=list)
     required_signals: list[str] = Field(default_factory=list)
-    requires_human_review: bool = False
-    requires_risk_guardrail: bool = False
 
 
 def default_workflow_plan() -> WorkflowPlan:
