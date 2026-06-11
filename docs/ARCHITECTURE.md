@@ -71,3 +71,11 @@ Later milestones (LLM runtime, retrieval, memory, eval, multi-agent, production 
 | Observable reasoning | Decisions remain inspectable and debuggable |
 | Modular agents | Composable components, not hidden monolithic prompts |
 | Production orientation | Reliability and evaluation over unconstrained autonomy |
+
+---
+
+## Influences
+
+- [OpenClaw](https://github.com/openclaw/openclaw)
+- [LangGraph](https://github.com/langchain-ai/langgraph)
+- [OpenAI Agents SDK](https://github.com/openai/openai-agents-python)
