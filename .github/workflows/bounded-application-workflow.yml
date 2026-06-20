@@ -44,8 +44,7 @@ jobs:
           key: venv-${{ runner.os }}-${{ hashFiles('modules/bounded-application-workflow/poetry.lock') }}
 
       - name: Install dependencies
-        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
-        run: poetry install --no-interaction --no-ansi
+        run: poetry install --no-interaction --no-ansi --sync
 
       - name: Run tests
         run: poetry run pytest
