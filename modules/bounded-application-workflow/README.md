@@ -38,7 +38,7 @@ poetry run uvicorn app.api.main:app --reload
 poetry run pytest
 ```
 
-Set `SIGNAL_EXTRACTOR=llm` to use the LLM-backed signal extractor (falls back to deterministic rules when the provider is unavailable). Optional: `LLM_SIGNAL_MODEL` (default `gpt-5-mini`), `OPENAI_API_KEY` for live OpenAI Responses API calls. Install the OpenAI extra with `poetry install -E openai`.
+Set `SIGNAL_EXTRACTOR=llm` to use the LLM-backed signal extractor (falls back to deterministic rules when the provider is unavailable). Optional: `LLM_SIGNAL_MODEL` (default `gpt-5-mini`), `OPENAI_API_KEY` for live OpenAI Responses API calls.
 
 ## API
 
