@@ -8,6 +8,15 @@ Decisions: `prepare` · `queue` · `skip` · `escalate` (human review). Does not
 
 ## Implemented
 
+Evaluation engine:
+
+- Signal extraction — structured signals from a job description (`JobSignals`)
+- Profile matching — alignment scoring of profile against extracted signals (`ProfileMatchResult`)
+- Decision policy — bounded thresholds and escalation rules (`WorkflowDecision`)
+- API — evaluate `WorkflowInput` → `WorkflowOutput`
+
+Agentic workflow:
+
 - Workflow state machine — explicit states and validated transitions (`WorkflowStateMachine`)
 - Workflow run model — every run recorded and reconstructable (`WorkflowRun`)
 - Planning layer — stages selected before execution, plan vs. execution compared (`WorkflowPlan`)
@@ -15,6 +24,10 @@ Decisions: `prepare` · `queue` · `skip` · `escalate` (human review). Does not
 - Orchestrator — state-managed execution of the agent pipeline
 - Human review path — escalated decisions approved or revised (`HumanReviewRecord`)
 - Audit trail — timestamped events and per-agent traces (`WorkflowEvent`, `AgentTrace`)
+
+## In progress — Milestone 4
+
+- Agent runtime — bounded, observable execution path for LLM-backed agents behind the existing contracts (`AgentRuntime`, `BoundedAgentRuntime`, `RuntimeConfig`, `AgentExecutionResult`)
 
 ## Run locally
 
