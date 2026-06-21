@@ -27,8 +27,8 @@ Agentic workflow:
 
 ## In progress — Milestone 4
 
-- Agent runtime — bounded, observable execution path for LLM-backed agents behind the existing contracts (`AgentRuntime`, `BoundedAgentRuntime`, `RuntimeConfig`, `AgentExecutionResult`)
-- LLM signal extractor — `LLMSignalExtractor` behind the `SignalExtractor` protocol, with versioned prompts, Pydantic schema validation, runtime retries, and deterministic fallback to `DefaultSignalExtractor`
+- Agent runtime — bounded, observable execution path for LLM-backed agents behind the existing contracts (`AgentRuntime`, `BoundedAgentRuntime`, `RuntimeConfig`, `AgentExecutionResult`), with runtime-level validation, retry, and fallback policies (`PydanticOutputValidator`, `RetryPolicy`)
+- LLM signal extractor — `LLMSignalExtractor` behind the `SignalExtractor` protocol, with versioned prompts and deterministic fallback to `DefaultSignalExtractor`
 
 ## Run locally
 

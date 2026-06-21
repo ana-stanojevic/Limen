@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from typing import Protocol, runtime_checkable
 
 from app.runtime.config import RuntimeConfig
+from app.runtime.policies import OutputValidator, RetryPolicy
 from app.runtime.result import (
     AgentExecutionResult,
     ExecutionStatus,
@@ -25,6 +26,10 @@ class AgentRuntime(Protocol):
         operation: AgentOperation[InputT, OutputT],
         agent_input: InputT,
         config: RuntimeConfig,
+        *,
+        validator: OutputValidator[OutputT] | None = None,
+        fallback: AgentOperation[InputT, OutputT] | None = None,
+        retry_policy: RetryPolicy | None = None,
     ) -> AgentExecutionResult[OutputT]: ...
 
 
@@ -36,8 +41,13 @@ class BoundedAgentRuntime:
         operation: AgentOperation[InputT, OutputT],
         agent_input: InputT,
         config: RuntimeConfig,
+        *,
+        validator: OutputValidator[OutputT] | None = None,
+        fallback: AgentOperation[InputT, OutputT] | None = None,
+        retry_policy: RetryPolicy | None = None,
     ) -> AgentExecutionResult[OutputT]:
         started_at = datetime.now(timezone.utc)
+        policy = retry_policy or RetryPolicy()
         attempts = 0
         output: OutputT | None = None
         last_error: str | None = None
@@ -46,14 +56,63 @@ class BoundedAgentRuntime:
         while attempts < config.max_attempts:
             attempts += 1
             try:
-                output = operation(agent_input)
+                candidate = operation(agent_input)
+                if validator is not None:
+                    candidate = validator.validate(candidate)
+                output = candidate
             except Exception as exc:  # bounded: contain, optionally retry
                 last_error = f"{type(exc).__name__}: {exc}"
+                if not policy.should_retry(exc):
+                    break
                 continue
             status = ExecutionStatus.SUCCESS
             last_error = None
             break
 
+        if status == ExecutionStatus.SUCCESS:
+            return self._result(
+                config,
+                started_at,
+                status=status,
+                attempts=attempts,
+                output=output,
+            )
+
+        if fallback is not None:
+            try:
+                output = fallback(agent_input)
+            except Exception:
+                pass
+            else:
+                return self._result(
+                    config,
+                    started_at,
+                    status=ExecutionStatus.SUCCESS,
+                    attempts=attempts,
+                    output=output,
+                    error=last_error,
+                    used_fallback=True,
+                )
+
+        return self._result(
+            config,
+            started_at,
+            status=status,
+            attempts=attempts,
+            error=last_error,
+        )
+
+    @staticmethod
+    def _result(
+        config: RuntimeConfig,
+        started_at: datetime,
+        *,
+        status: ExecutionStatus,
+        attempts: int,
+        output: OutputT | None = None,
+        error: str | None = None,
+        used_fallback: bool = False,
+    ) -> AgentExecutionResult[OutputT]:
         return AgentExecutionResult[OutputT](
             agent_name=config.agent_name,
             config_version=config.config_version,
@@ -62,5 +121,6 @@ class BoundedAgentRuntime:
             started_at=started_at,
             completed_at=datetime.now(timezone.utc),
             output=output,
-            error=last_error,
+            error=error,
+            used_fallback=used_fallback,
         )

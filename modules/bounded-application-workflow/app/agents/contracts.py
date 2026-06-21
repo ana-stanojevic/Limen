@@ -3,7 +3,6 @@ from typing import Optional, Protocol
 from pydantic import BaseModel, Field
 
 from app.domain.job_signals import JobSignals
-from app.runtime.result import ExecutionStatus
 from app.domain.models import (
     JobDescription,
     ProfileMatchResult,
@@ -13,6 +12,7 @@ from app.domain.models import (
     WorkflowOutput,
 )
 from app.domain.workflow_run import WorkflowPlan, WorkflowRun
+from app.runtime.result import AgentExecutionResult
 
 
 class WorkflowPlannerInput(BaseModel):
@@ -37,21 +37,9 @@ class SignalExtractorInput(BaseModel):
     job_description: JobDescription
 
 
-class SignalExtractionMetadata(BaseModel):
-    """Runtime metadata for auditable LLM-backed extraction."""
-
-    agent_name: str
-    config_version: str
-    status: ExecutionStatus
-    attempts: int
-    duration_ms: float
-    used_fallback: bool = False
-    error: Optional[str] = None
-
-
 class SignalExtractorOutput(BaseModel):
     signals: JobSignals
-    metadata: Optional[SignalExtractionMetadata] = None
+    execution: Optional[AgentExecutionResult["SignalExtractorOutput"]] = None
 
 
 class SignalExtractor(Protocol):

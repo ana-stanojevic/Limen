@@ -10,7 +10,6 @@ from app.agents.contracts import (
     ProfileMatcher,
     ProfileMatcherInput,
     ProfileMatcherOutput,
-    SignalExtractionMetadata,
     SignalExtractor,
     SignalExtractorInput,
     SignalExtractorOutput,
