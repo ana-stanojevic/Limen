@@ -207,14 +207,14 @@ def test_llm_extractor_success():
 
     assert output.signals.required_skills == ["Python"]
     assert output.signals.preferred_skills == ["FastAPI"]
-    assert output.metadata and not output.metadata.used_fallback
+    assert output.execution and not output.execution.used_fallback
 
 
 @pytest.mark.parametrize(
     "responses, used_fallback, attempts, error_prefix",
     [
         ([LLMClientError("down")], True, 1, "SignalExtractionLLMError"),
-        ([signals_payload(required_skills="Python")], True, 1, "SignalExtractionSchemaError"),
+        ([signals_payload(required_skills="Python")], True, 1, "OutputValidationError"),
         (
             [LLMClientError("retry"), signals_payload(required_skills=["Python"])],
             False,
@@ -230,9 +230,9 @@ def test_llm_extractor_runtime_paths(responses, used_fallback, attempts, error_p
         config=SignalExtractorRuntimeConfig(max_attempts=attempts),
     ).run(sample_signal_extractor_input())
 
-    assert output.metadata
-    assert output.metadata.used_fallback is used_fallback
-    assert output.metadata.attempts == attempts
+    assert output.execution
+    assert output.execution.used_fallback is used_fallback
+    assert output.execution.attempts == attempts
     if used_fallback:
-        assert output.metadata.status == ExecutionStatus.FAILED
-        assert output.metadata.error.startswith(error_prefix)
+        assert output.execution.status == ExecutionStatus.SUCCESS
+        assert (output.execution.error or "").startswith(error_prefix)

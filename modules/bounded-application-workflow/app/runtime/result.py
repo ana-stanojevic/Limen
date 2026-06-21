@@ -30,6 +30,7 @@ class AgentExecutionResult(BaseModel, Generic[OutputT]):
     completed_at: datetime
     output: Optional[OutputT] = None
     error: Optional[str] = None
+    used_fallback: bool = False
 
     @computed_field
     @property
@@ -48,3 +49,7 @@ class AgentExecutionResult(BaseModel, Generic[OutputT]):
                 f"{self.attempts} attempt(s): {self.error or 'no output produced'}"
             )
         return self.output
+
+    def without_output(self) -> "AgentExecutionResult[OutputT]":
+        """Return an audit copy without the nested agent output."""
+        return self.model_copy(update={"output": None})
