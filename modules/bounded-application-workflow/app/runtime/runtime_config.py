@@ -28,7 +28,6 @@ class AgentRuntimeConfig(BaseModel):
 class RuntimeConfig(BaseModel):
     """Versioned runtime settings bundle loaded from the config registry."""
 
-    config_id: str = Field(default="runtime", min_length=1)
     config_version: str = Field(default="v1", min_length=1)
     config_hash: str = Field(default="")
     agents: dict[str, AgentRuntimeConfig] = Field(default_factory=dict)
@@ -45,7 +44,6 @@ class RuntimeConfig(BaseModel):
             raise ValueError("Runtime config must define at least one agent")
 
         return cls(
-            config_id=spec.config_id,
             config_version=spec.version,
             config_hash=spec.content_hash,
             agents=agents,
@@ -75,7 +73,6 @@ class RuntimeConfig(BaseModel):
         else:
             settings = {agent_name: agent_settings}
         spec = ConfigSpec(
-            config_id="runtime",
             version=config_version,
             settings=settings,
             content_hash=compute_config_hash(settings),
@@ -103,7 +100,6 @@ class RuntimeConfig(BaseModel):
 
     def execution_snapshot(self) -> dict[str, str]:
         return {
-            "config_id": self.config_id,
             "config_version": self.config_version,
             "config_hash": self.config_hash,
         }

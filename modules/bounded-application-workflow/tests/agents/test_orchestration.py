@@ -24,6 +24,7 @@ from tests.conftest import (
     expected_decision,
     load_fixture,
     mock_llm_client,
+    runtime_config,
     signals_payload,
     workflow_input,
 )
@@ -83,9 +84,13 @@ def test_severe_seniority_gap_skips():
     "runtime_version, extractor_name",
     [("v1", "DefaultSignalExtractor"), ("v2", "LLMSignalExtractor")],
 )
-def test_create_agents_selects_extractor(monkeypatch, runtime_version, extractor_name):
-    monkeypatch.setenv("RUNTIME_CONFIG_VERSION", runtime_version)
-    assert create_agents(client=mock_llm_client())[-1]._extractor.__class__.__name__ == extractor_name
+def test_create_agents_selects_extractor(runtime_version, extractor_name):
+    config = runtime_config(version=runtime_version)
+    assert (
+        create_agents(client=mock_llm_client(), runtime_config=config)[-1]
+        ._extractor.__class__.__name__
+        == extractor_name
+    )
 
 
 def test_create_agents_rejects_unknown_mode():

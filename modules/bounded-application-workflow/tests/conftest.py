@@ -7,9 +7,26 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.agents.contracts import SignalExtractorInput
+from app.domain.job_signals import SIGNAL_FIELDS
 from app.domain.models import DecisionType, JobDescription, UserProfile, WorkflowInput
 
+MODULE_ROOT = Path(__file__).parent.parent
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
+SIGNAL_FIXTURES_DIR = FIXTURES_DIR / "signal"
+EVAL_DATASET_DIR = MODULE_ROOT / "eval" / "dataset"
+
+
+def load_fixture(name: str) -> dict:
+    return json.loads((FIXTURES_DIR / name).read_text())
+
+
+def load_signal_fixture(name: str) -> dict:
+    return json.loads((SIGNAL_FIXTURES_DIR / name).read_text())
+
+
+def load_eval_case(name: str) -> dict:
+    return json.loads((EVAL_DATASET_DIR / name).read_text())
+
 
 WORKFLOW_FIXTURES = (
     "strong_match.json",
@@ -17,9 +34,8 @@ WORKFLOW_FIXTURES = (
     "ambiguous_match.json",
 )
 
-SIGNAL_EXTRACTION_FIXTURES = (
-    "skill_extraction.json",
-    "risk_extraction.json",
+SIGNAL_EXTRACTION_FIXTURES = tuple(
+    path.name for path in sorted(SIGNAL_FIXTURES_DIR.glob("*.json"))
 )
 
 AI_ENGINEER_JOB_TEXT = """
@@ -42,19 +58,6 @@ Employment Type: full-time
 Build and own LLM-based product workflows.
 """
 
-SIGNAL_FIELDS = (
-    "required_skills",
-    "preferred_skills",
-    "seniority_signals",
-    "production_expectations",
-    "risk_indicators",
-    "missing_signals",
-)
-
-
-def load_fixture(name: str) -> dict:
-    return json.loads((FIXTURES_DIR / name).read_text())
-
 
 def expected_decision(fixture_name: str) -> DecisionType:
     return DecisionType(load_fixture(fixture_name)["expected_decision"])
@@ -69,10 +72,10 @@ def workflow_input(fixture_name: str) -> WorkflowInput:
 
 
 def escalating_workflow_input() -> WorkflowInput:
-    fixture = load_fixture("risk_extraction.json")
+    case = load_signal_fixture("risk_extraction.json")
     return WorkflowInput(
         user_profile=workflow_input("ambiguous_match.json").user_profile,
-        job_description=JobDescription(**fixture["job_description"]),
+        job_description=JobDescription(**case["job_description"]),
     )
 
 
@@ -135,7 +138,6 @@ def register_runtime_bundle(
     config_registry = ConfigRegistry()
     config_registry.register(
         ConfigSpec(
-            config_id="runtime",
             version=version,
             settings=settings,
             content_hash=compute_config_hash(settings),

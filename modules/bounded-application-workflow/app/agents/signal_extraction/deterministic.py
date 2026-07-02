@@ -3,6 +3,7 @@ from typing import Iterable
 
 from app.domain.job_signals import JobSignals
 from app.domain.models import JobDescription
+from app.domain.signal_text import casefold_for_match, collapse_whitespace
 
 PatternLabel = tuple[re.Pattern[str], str | None]
 
@@ -122,20 +123,16 @@ _EMPLOYMENT_TYPE_PATTERN = re.compile(
 )
 
 
-def _normalize_skill(skill: str) -> str:
-    return " ".join(skill.split())
-
-
 def _dedupe_skills(skills: Iterable[str]) -> list[str]:
     seen: set[str] = set()
     result: list[str] = []
 
     for skill in skills:
-        normalized = _normalize_skill(skill)
+        normalized = collapse_whitespace(skill)
         if not normalized:
             continue
 
-        key = normalized.casefold()
+        key = casefold_for_match(normalized)
         if key in seen:
             continue
 
@@ -170,7 +167,7 @@ def _signals_from_labeled_patterns(
 
     for pattern, label in patterns:
         for match in pattern.finditer(corpus):
-            signals.append(label or _normalize_skill(match.group(0)))
+            signals.append(label or collapse_whitespace(match.group(0)))
 
     return signals
 
@@ -183,10 +180,10 @@ def _seniority_signals_from_job(job: JobDescription) -> list[str]:
 
     corpus = _job_corpus(job)
     for match in _YEARS_EXPERIENCE_PATTERN.finditer(corpus):
-        signals.append(_normalize_skill(match.group(0)))
+        signals.append(collapse_whitespace(match.group(0)))
 
     for match in _SENIORITY_LEVEL_PATTERN.finditer(corpus):
-        signals.append(_normalize_skill(match.group(0)))
+        signals.append(collapse_whitespace(match.group(0)))
 
     description_required, description_preferred = _skills_from_description(job.description)
     for skill in [*description_required, *description_preferred]:
@@ -247,11 +244,11 @@ def _missing_signals_from_job(job: JobDescription) -> list[str]:
 def _normalize_job_signals(signals: JobSignals) -> JobSignals:
     """Deduplicate parsed signals from regex/heuristic extraction."""
     required_skills = _dedupe_skills(signals.required_skills)
-    required_keys = {skill.casefold() for skill in required_skills}
+    required_keys = {casefold_for_match(skill) for skill in required_skills}
     preferred_skills = [
         skill
         for skill in _dedupe_skills(signals.preferred_skills)
-        if skill.casefold() not in required_keys
+        if casefold_for_match(skill) not in required_keys
     ]
 
     return JobSignals(

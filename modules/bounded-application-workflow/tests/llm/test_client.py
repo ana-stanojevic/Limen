@@ -28,7 +28,7 @@ def test_complete_json_uses_responses_api():
 
 def test_complete_json_requires_api_key():
     with pytest.raises(LLMClientError, match="OPENAI_API_KEY"):
-        OpenAILLMClient(api_key=None).complete_json(**_CALL)
+        OpenAILLMClient(api_key="").complete_json(**_CALL)
 
 
 def test_complete_json_wraps_provider_errors():

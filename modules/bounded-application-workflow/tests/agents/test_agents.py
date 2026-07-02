@@ -24,6 +24,7 @@ from tests.conftest import (
     SIGNAL_EXTRACTION_FIXTURES,
     SIGNAL_FIELDS,
     escalating_workflow_input,
+    load_signal_fixture,
     load_fixture,
     mock_llm_client,
     sample_signal_extractor_input,
@@ -74,9 +75,9 @@ def test_severe_seniority_mismatch(profile_seniority, job_seniority):
 
 @pytest.mark.parametrize("fixture_name", SIGNAL_EXTRACTION_FIXTURES)
 def test_extract_from_fixture(fixture_name):
-    fixture = load_fixture(fixture_name)
-    signals = extract_job_signals(JobDescription(**fixture["job_description"]))
-    expected = fixture["expected_signals"]
+    case = load_signal_fixture(fixture_name)
+    signals = extract_job_signals(JobDescription(**case["job_description"]))
+    expected = case["expected_signals"]
     for field in SIGNAL_FIELDS:
         assert getattr(signals, field) == expected[field]
 
