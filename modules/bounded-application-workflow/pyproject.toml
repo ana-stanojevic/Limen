@@ -19,8 +19,12 @@ httpx = "^0.28"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = "-m 'not llm'"
 filterwarnings = [
     "ignore:'asyncio.iscoroutinefunction' is deprecated:DeprecationWarning",
+]
+markers = [
+    "llm: live OpenAI signal extraction eval (requires OPENAI_API_KEY; run with: pytest -m llm)",
 ]
 
 [build-system]

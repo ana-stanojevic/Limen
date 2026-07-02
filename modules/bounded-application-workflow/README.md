@@ -33,30 +33,34 @@ Agentic workflow:
 - Prompt registry — prompts live in each runtime agent package under `app/agents/{agent}/prompts/{version}.txt`; loaded via `PromptRegistry` / `PromptSpec`
 - Runtime config registry — versioned bundles in `app/runtime/configs/` (`runtime_{version}.json`) with flat agent settings (no per-agent keys); applied to discovered runtime agents (packages with a `prompts/` folder); loaded via `load_runtime_config`
 - Agent layout — each agent lives in its own package under `app/agents/` (e.g. `signal_extraction/`, `profile_matching/`); deterministic logic lives in a sibling module (e.g. `deterministic.py`) with a thin `Default*` adapter in `__init__.py`; LLM-backed agents add `llm.py` (e.g. `LLMSignalExtractor`), versioned prompts under `prompts/`, and run through `BoundedAgentRuntime`; `wiring.py` selects deterministic vs. LLM wiring from the runtime config
+- Signal extractor evaluation — golden dataset in `eval/dataset/` (LLM eval), see [`eval/README.md`](eval/README.md)
 
 ## Run locally
 
 ```bash
 poetry install
 poetry run uvicorn app.api.main:app --reload
-poetry run pytest
 ```
 
-Environment variables:
+Local configuration lives in `.env` in this directory (gitignored). The app reads settings from that file only — no shell overrides.
 
 | Variable | Default | When needed |
 |----------|---------|-------------|
-| `RUNTIME_CONFIG_VERSION` | `v1` | Always optional. `v1` = deterministic extractor; `v2`/`v3` = LLM-backed extractor (see `runtime_v*.json`) |
-| `OPENAI_API_KEY` | — | Required only for live LLM calls with `RUNTIME_CONFIG_VERSION=v2` or `v3` |
+| `RUNTIME_CONFIG_VERSION` | `v1` | Optional. `v1` = deterministic extractor; `v2`/`v3` = LLM-backed extractor (see `runtime_v*.json`) |
+| `OPENAI_API_KEY` | — | LLM runtime (`v2`/`v3`) or live eval (`pytest -m llm`) |
+
+Example `.env`:
 
 ```bash
-# deterministic (default) — no env vars required
-poetry run uvicorn app.api.main:app --reload
+RUNTIME_CONFIG_VERSION=v2
+OPENAI_API_KEY=sk-...
+```
 
-# LLM-backed signal extraction
-export RUNTIME_CONFIG_VERSION=v2
-export OPENAI_API_KEY=sk-...
-poetry run uvicorn app.api.main:app --reload
+Tests:
+
+```bash
+poetry run pytest              # fast, no live OpenAI calls
+poetry run pytest -m llm -s    # golden eval (needs OPENAI_API_KEY in .env)
 ```
 
 ## API

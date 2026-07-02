@@ -20,3 +20,6 @@ class JobSignals(BaseModel):
     production_expectations: List[str] = Field(default_factory=list)
     risk_indicators: List[str] = Field(default_factory=list)
     missing_signals: List[str] = Field(default_factory=list)
+
+
+SIGNAL_FIELDS = tuple(JobSignals.model_fields.keys())

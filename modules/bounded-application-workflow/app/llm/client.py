@@ -1,6 +1,7 @@
 import json
-import os
 from typing import Any, Protocol, runtime_checkable
+
+from app.local_env import get_local_env
 
 
 class LLMClientError(RuntimeError):
@@ -30,7 +31,9 @@ class OpenAILLMClient:
         api_key: str | None = None,
     ) -> None:
         self._model = model
-        self._api_key = api_key or os.environ.get("OPENAI_API_KEY")
+        self._api_key = (
+            api_key if api_key is not None else get_local_env("OPENAI_API_KEY")
+        )
 
     def complete_json(
         self,

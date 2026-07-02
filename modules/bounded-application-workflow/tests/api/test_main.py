@@ -4,7 +4,7 @@ from fastapi.testclient import TestClient
 
 from app.agents.wiring import create_agents
 from app.api.main import create_app
-from tests.conftest import load_fixture, mock_llm_client
+from tests.conftest import load_fixture, load_signal_fixture, mock_llm_client, runtime_config
 
 
 def test_health(api_client):
@@ -31,13 +31,17 @@ def test_run_workflow_rejects_invalid_payload(api_client):
     assert api_client.post("/workflow/run", json={}).status_code == 422
 
 
-def test_run_workflow_with_llm_orchestrator(monkeypatch):
-    monkeypatch.setenv("RUNTIME_CONFIG_VERSION", "v2")
-    skill_fixture = load_fixture("skill_extraction.json")
+def test_run_workflow_with_llm_orchestrator():
+    llm_config = runtime_config(version="v2")
+    skill_fixture = load_signal_fixture("skill_extraction.json")
     strong_fixture = load_fixture("strong_match.json")
 
     mock_client = mock_llm_client(skill_fixture["expected_signals"])
-    api = TestClient(create_app(orchestrator=create_agents(client=mock_client)[-1]))
+    api = TestClient(
+        create_app(
+            orchestrator=create_agents(client=mock_client, runtime_config=llm_config)[-1]
+        )
+    )
     response = api.post(
         "/workflow/run",
         json={
@@ -55,7 +59,13 @@ def test_run_workflow_with_llm_orchestrator(monkeypatch):
 
     failing_client = MagicMock()
     failing_client.complete_json.side_effect = RuntimeError("offline")
-    api = TestClient(create_app(orchestrator=create_agents(client=failing_client)[-1]))
+    api = TestClient(
+        create_app(
+            orchestrator=create_agents(
+                client=failing_client, runtime_config=llm_config
+            )[-1]
+        )
+    )
     response = api.post(
         "/workflow/run",
         json={

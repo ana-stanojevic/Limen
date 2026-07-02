@@ -23,7 +23,6 @@ class AgentExecutionResult(BaseModel, Generic[OutputT]):
     """Auditable record of one agent execution through the runtime."""
 
     agent_name: str
-    config_id: str
     config_version: str
     config_hash: str
     status: ExecutionStatus

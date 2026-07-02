@@ -29,9 +29,9 @@ _AGENT = agent_name_for(LLMSignalExtractor)
 
 def test_default_config_registry():
     registry = default_config_registry()
-    assert registry.list_versions("runtime") == ["v1", "v2", "v3"]
+    assert registry.list_versions() == ["v1", "v2", "v3"]
 
-    spec = registry.get("runtime", "v2")
+    spec = registry.get("v2")
     assert spec.settings == {
         "mode": "llm",
         "model": "gpt-5-mini",
@@ -59,7 +59,7 @@ def test_discover_agents_finds_runtime_packages():
 
 def test_registries_reject_unknown_versions():
     with pytest.raises(ConfigNotFoundError, match="version 'missing'"):
-        default_config_registry().get("runtime", "missing")
+        default_config_registry().get("missing")
     with pytest.raises(PromptNotFoundError, match="version 'missing'"):
         default_prompt_registry().get(_AGENT, "missing")
 
@@ -78,8 +78,8 @@ def test_config_registry_from_directory(tmp_path):
     )
 
     registry = ConfigRegistry.from_directory(configs_dir)
-    assert registry.get("runtime", "v4").settings == settings
-    assert registry.list_versions("runtime") == ["v4"]
+    assert registry.get("v4").settings == settings
+    assert registry.list_versions() == ["v4"]
 
 
 def test_prompt_registry_from_agents_directory(tmp_path):
