@@ -14,7 +14,7 @@ Bounded agentic orchestration: planning/execution separation, agent contracts, e
 
 **Done when:** state machine is explicit; each agent has I/O contract; escalation routes to human review; transitions and outputs are logged and inspectable.
 
-## Milestone 4 — LLM-Backed Agent Runtime
+## Milestone 4 — LLM-Backed Agent Runtime — completed
 
 LLM implementations behind existing Protocol contracts with typed fallbacks and auditable execution.
 
