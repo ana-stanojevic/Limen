@@ -4,7 +4,7 @@ First executable Limen module. Evaluates whether an opportunity is worth pursuin
 
 Decisions: `prepare` · `queue` · `skip` · `escalate` (human review). Does not submit applications or take autonomous actions.
 
-**Phase:** Milestone 4 — LLM-Backed Agent Runtime (Milestones 1–3 complete). See [ROADMAP](../../docs/ROADMAP.md).
+**Phase:** Milestones 1–4 complete — LLM-Backed Agent Runtime delivered. See [ROADMAP](../../docs/ROADMAP.md).
 
 ## Implemented
 
@@ -24,15 +24,15 @@ Agentic workflow:
 - Orchestrator — state-managed execution of the agent pipeline
 - Human review path — escalated decisions approved or revised (`HumanReviewRecord`)
 - Audit trail — timestamped events and per-agent traces (`WorkflowEvent`, `AgentTrace`)
-- Execution tracing — LLM runtime metadata on each agent invocation (`AgentExecutionResult` on `SignalExtractorOutput.execution`, nested in workflow `AgentTrace`); captures config/prompt hashes, attempt count, retry/fallback outcome, and timing
 
-## In progress — Milestone 4
+Agent runtime:
 
-- Agent runtime — bounded, observable execution path for LLM-backed agents behind the existing contracts (`AgentRuntime`, `BoundedAgentRuntime`, `RuntimeConfig`, `AgentExecutionResult`), with runtime-level validation, retry, and fallback policies (`PydanticOutputValidator`, `RetryPolicy`)
+- Runtime — bounded, observable execution path for LLM-backed agents behind the existing contracts (`AgentRuntime`, `BoundedAgentRuntime`, `RuntimeConfig`, `AgentExecutionResult`), with runtime-level validation, retry, and fallback policies (`PydanticOutputValidator`, `RetryPolicy`)
 - LLM signal extractor — `LLMSignalExtractor` behind the `SignalExtractor` protocol, with versioned prompts and deterministic fallback to `DefaultSignalExtractor`
 - Prompt registry — prompts live in each runtime agent package under `app/agents/{agent}/prompts/{version}.txt`; loaded via `PromptRegistry` / `PromptSpec`
 - Runtime config registry — versioned bundles in `app/runtime/configs/` (`runtime_{version}.json`) with flat agent settings (no per-agent keys); applied to discovered runtime agents (packages with a `prompts/` folder); loaded via `load_runtime_config`
 - Agent layout — each agent lives in its own package under `app/agents/` (e.g. `signal_extraction/`, `profile_matching/`); deterministic logic lives in a sibling module (e.g. `deterministic.py`) with a thin `Default*` adapter in `__init__.py`; LLM-backed agents add `llm.py` (e.g. `LLMSignalExtractor`), versioned prompts under `prompts/`, and run through `BoundedAgentRuntime`; `wiring.py` selects deterministic vs. LLM wiring from the runtime config
+- Execution tracing — LLM runtime metadata on each agent invocation (`AgentExecutionResult` on `SignalExtractorOutput.execution`, nested in workflow `AgentTrace`); captures config/prompt hashes, attempt count, retry/fallback outcome, and timing
 - Signal extractor evaluation — golden dataset in `eval/dataset/` (LLM eval), see [`eval/README.md`](eval/README.md)
 
 ## Run locally
@@ -76,4 +76,5 @@ Workflow: [`.github/workflows/bounded-application-workflow.yml`](../../.github/w
 
 ## Documentation
 
-- [PRD](../../docs/PRD.md) · [ARCHITECTURE](../../docs/ARCHITECTURE.md) · [ROADMAP](../../docs/ROADMAP.md)
+- Project: [PRD](../../docs/PRD.md) · [ARCHITECTURE](../../docs/ARCHITECTURE.md) · [ROADMAP](../../docs/ROADMAP.md)
+- Module: [runtime](app/runtime/README.md) · [agent guide](app/agents/README.md) · [evaluation](eval/README.md)

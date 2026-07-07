@@ -30,9 +30,33 @@ Every run is reconstructable from `WorkflowRun` (input, plan, events, traces, re
 
 ---
 
-## Agent Runtime — Milestone 4 (in progress)
+## Agent Runtime — Milestone 4 (completed)
 
-Shared execution path for LLM-backed agents behind the same `Protocol` contracts — orchestrator and workflow stay unchanged. `BoundedAgentRuntime` runs an operation through a timed, bounded-attempt lifecycle (per `RuntimeConfig`: `agent_name`, `config_version`, `max_attempts`) and returns an `AgentExecutionResult` with status, attempts, timing, and typed output or contained error. Errors are contained, not raised, so a failing agent never breaks the workflow. Schema validation, fallback, prompt versioning, and tracing build on this in later M4 issues.
+Shared execution path for LLM-backed agents behind the same `Protocol` contracts — the orchestrator and state machine stay unchanged. An agent's LLM call is wrapped by `BoundedAgentRuntime`, which runs it through a bounded, observable lifecycle and returns an `AgentExecutionResult`; the runtime itself never raises — every outcome, success or failure, comes back as a result. A fallback lets a failing agent degrade to a deterministic result. How a `FAILED` result is handled is the caller's choice: `LLMSignalExtractor` unwraps it, so a run breaks only if the LLM and its deterministic fallback both fail.
+
+```mermaid
+flowchart TD
+    op["LLM operation"] --> attempts{"attempts left?"}
+    attempts -- yes --> run["run + validate"]
+    run -- ok --> success["SUCCESS"]
+    run -- error --> retry{"retryable?"}
+    retry -- yes --> attempts
+    retry -- no --> fb{"fallback?"}
+    attempts -- no --> fb
+    fb -- yes --> det["deterministic fallback"] --> success
+    fb -- no --> failed["FAILED (contained)"]
+```
+
+How the pieces fit together:
+
+- **Execution** — `BoundedAgentRuntime` runs the operation up to `max_attempts` (from the agent's `RuntimeConfig`), timing each run and recording status, attempts, and typed output or contained error.
+- **Validation** — a `PydanticOutputValidator` re-validates each candidate output against its schema; invalid output fails the attempt.
+- **Fallback & retry** — a `RetryPolicy` decides which errors are retryable; once attempts are exhausted, a deterministic fallback (e.g. `DefaultSignalExtractor`) produces a typed result instead.
+- **Versioning** — prompts (`PromptRegistry`, `app/agents/{agent}/prompts/{version}.txt`) and runtime settings (`ConfigRegistry`, `app/runtime/configs/runtime_{version}.json`) are versioned and content-hashed, selected by `RUNTIME_CONFIG_VERSION`.
+- **Tracing** — each `AgentExecutionResult` carries `config_version`, `config_hash`, `prompt_hash`, attempts, timing, and the fallback flag, and is nested in the run's `AgentTrace` — so a run stays fully reconstructable.
+- **Evaluation** — a golden dataset scores extraction quality (precision/recall/F1) per config version, making prompt/config changes measurable.
+
+Details: [runtime](../modules/bounded-application-workflow/app/runtime/README.md) · [agent guide](../modules/bounded-application-workflow/app/agents/README.md) · [evaluation](../modules/bounded-application-workflow/eval/README.md).
 
 ---
 

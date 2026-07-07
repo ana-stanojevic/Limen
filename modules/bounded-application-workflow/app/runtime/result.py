@@ -44,13 +44,13 @@ class AgentExecutionResult(BaseModel, Generic[OutputT]):
         return self.status == ExecutionStatus.SUCCESS
 
     def unwrap(self) -> OutputT:
-        """Return the typed output or raise if the execution failed."""
-        if not self.succeeded or self.output is None:
-            raise RuntimeExecutionError(
-                f"Agent '{self.agent_name}' execution failed after "
-                f"{self.attempts} attempt(s): {self.error or 'no output produced'}"
-            )
-        return self.output
+        """Return the typed output, or raise if the execution failed."""
+        if self.succeeded and self.output is not None:
+            return self.output
+        raise RuntimeExecutionError(
+            f"Agent '{self.agent_name}' execution failed after "
+            f"{self.attempts} attempt(s): {self.error or 'no output produced'}"
+        )
 
     def without_output(self) -> "AgentExecutionResult[OutputT]":
         """Return an audit copy without the nested agent output."""

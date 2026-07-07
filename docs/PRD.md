@@ -6,7 +6,7 @@ Evaluates whether a professional opportunity is worth pursuing from structured s
 
 Supports deliberate, high-quality career decisions — not application volume or autonomous actions. First executable Limen module.
 
-**Phase:** Milestone 4 — LLM-Backed Agent Runtime (Milestones 1–3 complete). See [ARCHITECTURE.md](./ARCHITECTURE.md) for workflow states and agent boundaries.
+**Phase:** Milestones 1–4 complete — LLM-Backed Agent Runtime delivered. See [ARCHITECTURE.md](./ARCHITECTURE.md) for workflow states and agent boundaries.
 
 ---
 
@@ -43,6 +43,22 @@ Evolved the engine into bounded agentic orchestration with explicit states, spec
 - state transitions and agent outputs are logged and inspectable
 
 **Non-goals:** unconstrained multi-agent autonomy; LLM overrides without policy bounds.
+
+---
+
+## Milestone 4 — LLM-Backed Agent Runtime (delivered)
+
+Added a shared runtime so agents can be LLM-backed behind the same contracts, without changing the orchestrator or state machine.
+
+**Requirements (all met):**
+
+- at least one LLM-backed agent behind an existing `Protocol` contract
+- schema-validated outputs with deterministic fallback on failure
+- bounded, retryable execution with contained errors
+- versioned prompts and runtime configs, selected per run
+- execution tracing and an evaluation dataset for measurable quality
+
+**Non-goals:** autonomous actions; unbounded retries; LLM output accepted without validation or fallback.
 
 ---
 
@@ -92,9 +108,9 @@ Deterministic and simple. Risk-based escalation via workflow plan and decision r
 
 ## Technical Scope
 
-Python · FastAPI · deterministic policy and extraction · bounded agentic orchestration · modular domain layer · tests · CI.
+Python · FastAPI · deterministic and LLM-backed agents behind typed contracts · bounded agentic orchestration · runtime validation/fallback · versioned prompts and configs · modular domain layer · tests · CI.
 
-LLM-backed agents: Milestone 4. Implementation details: [module README](../modules/bounded-application-workflow/README.md).
+Implementation details: [module README](../modules/bounded-application-workflow/README.md).
 
 ---
 
@@ -103,6 +119,8 @@ LLM-backed agents: Milestone 4. Implementation details: [module README](../modul
 **Milestones 1–2:** core evaluation engine shipped.
 
 **Milestone 3:** delivered — explicit logged states · planning/execution separation · human review on escalation · inspectable transitions · foundation for user-facing demo (Milestone 5).
+
+**Milestone 4:** delivered — ≥1 LLM-backed agent behind existing contracts · schema validation · deterministic fallback · versioned prompts/configs · execution tracing · evaluation dataset.
 
 ---
 
