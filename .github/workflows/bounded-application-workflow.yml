@@ -36,15 +36,14 @@ jobs:
           virtualenvs-in-project: true
           installer-parallel: true
 
-      - name: Load cached dependencies
-        id: cached-poetry-dependencies
+      - name: Load cached virtualenv
         uses: actions/cache@v4
         with:
           path: modules/bounded-application-workflow/.venv
-          key: venv-${{ runner.os }}-${{ hashFiles('modules/bounded-application-workflow/poetry.lock') }}
+          key: venv-${{ runner.os }}-${{ env.pythonLocation }}-${{ hashFiles('modules/bounded-application-workflow/poetry.lock') }}
 
       - name: Install dependencies
-        run: poetry install --no-interaction --no-ansi --sync
+        run: poetry install --no-interaction --no-ansi
 
       - name: Run tests
         run: poetry run pytest
