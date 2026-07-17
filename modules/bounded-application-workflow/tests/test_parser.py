@@ -5,7 +5,7 @@ from app.parser import parse_job_description
 RAW_JOB_TEXT = """
 AI Engineer
 
-Company: Limen
+Company: Skaut Careers
 Location: Zurich
 Seniority: Mid
 Employment Type: Full-time
@@ -23,7 +23,7 @@ def test_parse_job_description():
     job = parse_job_description(RAW_JOB_TEXT)
 
     assert job.title == "AI Engineer"
-    assert job.company == "Limen"
+    assert job.company == "Skaut Careers"
     assert job.location == "Zurich"
     assert job.seniority == "Mid"
     assert job.employment_type == "Full-time"

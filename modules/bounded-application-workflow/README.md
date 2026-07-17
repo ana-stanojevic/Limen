@@ -1,6 +1,6 @@
 # Bounded Application Workflow
 
-First executable Limen module. Evaluates whether an opportunity is worth pursuing based on user profile, job description, and a bounded decision policy.
+First executable Skaut Careers module. Evaluates whether an opportunity is worth pursuing based on user profile, job description, and a bounded decision policy.
 
 Decisions: `prepare` · `queue` · `skip` · `escalate` (human review). Does not submit applications or take autonomous actions.
 

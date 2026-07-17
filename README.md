@@ -1,8 +1,10 @@
-# Limen
+# Skaut Careers
 
 > Navigate your professional life with clarity.
 
-Limen is a modular career platform for deliberate professional decisions — opportunities, applications, learning, and long-term direction.
+[www.skaut.careers](https://www.skaut.careers)
+
+Skaut Careers is a modular career platform for deliberate professional decisions — opportunities, applications, learning, and long-term direction.
 
 ## Current Module
 

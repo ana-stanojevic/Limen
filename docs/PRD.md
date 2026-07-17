@@ -4,7 +4,7 @@
 
 Evaluates whether a professional opportunity is worth pursuing from structured signals in a user profile and job description.
 
-Supports deliberate, high-quality career decisions — not application volume or autonomous actions. First executable Limen module.
+Supports deliberate, high-quality career decisions — not application volume or autonomous actions. First executable Skaut Careers module.
 
 **Phase:** Milestones 1–4 complete — LLM-Backed Agent Runtime delivered. See [ARCHITECTURE.md](./ARCHITECTURE.md) for workflow states and agent boundaries.
 
