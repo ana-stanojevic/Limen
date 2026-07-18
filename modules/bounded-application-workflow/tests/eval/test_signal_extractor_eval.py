@@ -28,7 +28,7 @@ def test_golden_dataset_loads():
 
 @pytest.mark.llm
 def test_llm_signal_extractor_v2_against_golden_dataset(openai_api_key):
-    run = run_evaluation(runtime_version="v2")
+    run = run_evaluation(runtime_version="v2", progress=True)
     report = format_report(run)
     print(f"\n{report}")
     assert run.aggregate.macro_f1 >= MIN_LLM_MACRO_F1, report
@@ -36,8 +36,8 @@ def test_llm_signal_extractor_v2_against_golden_dataset(openai_api_key):
 
 @pytest.mark.llm
 def test_llm_prompt_v3_vs_v2_comparison(openai_api_key):
-    baseline = run_evaluation(label="prompt_v1", runtime_version="v2")
-    candidate = run_evaluation(label="prompt_v2", runtime_version="v3")
+    baseline = run_evaluation(label="prompt_v1", runtime_version="v2", progress=True)
+    candidate = run_evaluation(label="prompt_v2", runtime_version="v3", progress=True)
     comparison = compare_runs(baseline, candidate)
     report = format_comparison_report(baseline, candidate, comparison)
     print(f"\n{report}")

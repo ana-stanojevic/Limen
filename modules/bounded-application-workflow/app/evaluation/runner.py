@@ -40,6 +40,14 @@ def build_signal_extractor(
     return extractor, config
 
 
+def _progress_bar(done: int, total: int, *, width: int = 20) -> str:
+    if total <= 0:
+        filled = width
+    else:
+        filled = int(width * done / total)
+    return f"[{'#' * filled}{'-' * (width - filled)}]"
+
+
 def run_evaluation(
     *,
     label: str | None = None,
@@ -48,6 +56,7 @@ def run_evaluation(
     model: Model | str | None = None,
     dataset_dir: Path | None = None,
     cases: list[EvalCase] | None = None,
+    progress: bool = False,
 ) -> EvalRun:
     extractor, config = build_signal_extractor(
         runtime_version=runtime_version,
@@ -57,21 +66,45 @@ def run_evaluation(
     resolved_label = label or runtime_config_label(config)
 
     loaded_cases = cases if cases is not None else load_eval_cases(dataset_dir)
-    case_results = [
-        score_case(
+    total = len(loaded_cases)
+    case_results: list[CaseResult] = []
+
+    if progress:
+        print(f"\n[{resolved_label}] starting evaluation ({total} cases)", flush=True)
+
+    for index, case in enumerate(loaded_cases, start=1):
+        if progress:
+            print(
+                f"[{resolved_label}] {_progress_bar(index - 1, total)} "
+                f"{index - 1}/{total} running {case.id}...",
+                flush=True,
+            )
+        result = score_case(
             case,
             extractor.run(
                 SignalExtractorInput(job_description=case.job_description)
             ).signals,
         )
-        for case in loaded_cases
-    ]
+        case_results.append(result)
+        if progress:
+            print(
+                f"[{resolved_label}] {_progress_bar(index, total)} "
+                f"{index}/{total} {case.id}  f1={result.macro_f1:.1%}",
+                flush=True,
+            )
+
+    aggregate = aggregate_metrics(case_results)
+    if progress:
+        print(
+            f"[{resolved_label}] done  macro_f1={aggregate.macro_f1:.1%}",
+            flush=True,
+        )
 
     return EvalRun(
         label=resolved_label,
         runtime_config=config,
         case_results=case_results,
-        aggregate=aggregate_metrics(case_results),
+        aggregate=aggregate,
     )
 
 
