@@ -1,17 +1,23 @@
-[tool.poetry]
+[project]
 name = "bounded-application-workflow"
 version = "0.1.0"
 description = "Evaluate professional opportunities against a user profile."
-authors = ["Ana Stanojevic"]
+authors = [{ name = "Ana Stanojevic" }]
 readme = "README.md"
-packages = [{ include = "app" }]
+requires-python = ">=3.11,<4.0"
+dependencies = [
+    "fastapi>=0.139",
+    "uvicorn[standard]>=0.51",
+    "pydantic>=2.13",
+    "openai>=2.46",
+    "pydantic-ai>=2.13",
+    "langgraph>=1.2",
+    "logfire>=4.37",
+    "pydantic-evals>=2.13",
+]
 
-[tool.poetry.dependencies]
-python = "^3.11"
-fastapi = "^0.115.0"
-uvicorn = { extras = ["standard"], version = "^0.32.0" }
-pydantic = "^2.0"
-openai = "^1.0"
+[tool.poetry]
+packages = [{ include = "app" }]
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^9.0"
@@ -20,9 +26,6 @@ httpx = "^0.28"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-m 'not llm'"
-filterwarnings = [
-    "ignore:'asyncio.iscoroutinefunction' is deprecated:DeprecationWarning",
-]
 markers = [
     "llm: live OpenAI signal extraction eval (requires OPENAI_API_KEY; run with: pytest -m llm)",
 ]
