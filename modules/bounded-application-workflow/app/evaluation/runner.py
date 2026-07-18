@@ -1,13 +1,13 @@
 from pathlib import Path
 
 from pydantic import BaseModel, Field
+from pydantic_ai.models import Model
 
 from app.agents.contracts import SignalExtractor, SignalExtractorInput
 from app.agents.signal_extraction import LLMSignalExtractor
 from app.agents.wiring import create_agents
 from app.evaluation.dataset import EvalCase, load_eval_cases
 from app.evaluation.metrics import AggregateMetrics, CaseResult, aggregate_metrics, score_case
-from app.llm.client import LLMClient
 from app.runtime import RuntimeConfig
 from app.runtime.config_loader import load_runtime_config
 from app.runtime.runtime_config import AgentRuntimeConfig
@@ -32,11 +32,11 @@ def build_signal_extractor(
     *,
     runtime_version: str | None = None,
     runtime_config: RuntimeConfig | None = None,
-    client: LLMClient | None = None,
+    model: Model | str | None = None,
 ) -> tuple[SignalExtractor, RuntimeConfig]:
     env = {"RUNTIME_CONFIG_VERSION": runtime_version} if runtime_version else None
     config = runtime_config or load_runtime_config(env=env)
-    _, extractor, *_ = create_agents(runtime_config=config, client=client)
+    _, extractor, *_ = create_agents(runtime_config=config, model=model)
     return extractor, config
 
 
@@ -45,14 +45,14 @@ def run_evaluation(
     label: str | None = None,
     runtime_version: str | None = None,
     runtime_config: RuntimeConfig | None = None,
-    client: LLMClient | None = None,
+    model: Model | str | None = None,
     dataset_dir: Path | None = None,
     cases: list[EvalCase] | None = None,
 ) -> EvalRun:
     extractor, config = build_signal_extractor(
         runtime_version=runtime_version,
         runtime_config=runtime_config,
-        client=client,
+        model=model,
     )
     resolved_label = label or runtime_config_label(config)
 
