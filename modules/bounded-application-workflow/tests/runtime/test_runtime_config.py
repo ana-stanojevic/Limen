@@ -29,7 +29,7 @@ _AGENT = agent_name_for(LLMSignalExtractor)
 
 def test_default_config_registry():
     registry = default_config_registry()
-    assert registry.list_versions() == ["v1", "v2", "v3", "v4"]
+    assert registry.list_versions() == ["v1", "v2", "v3"]
 
     spec = registry.get("v2")
     assert spec.settings == {
@@ -43,7 +43,7 @@ def test_default_config_registry():
 
 def test_default_prompt_registry():
     registry = default_prompt_registry()
-    assert registry.list_versions(_AGENT) == ["v1", "v2", "v3"]
+    assert registry.list_versions(_AGENT) == ["v1", "v2"]
 
     spec = registry.get(_AGENT, "v1")
     assert "required_skills" in spec.content
@@ -71,25 +71,25 @@ def test_config_registry_from_directory(tmp_path):
         "mode": "llm",
         "model": "gpt-test",
         "max_attempts": 1,
-        "prompt_version": "v3",
+        "prompt_version": "v2",
     }
-    (configs_dir / "runtime_v4.json").write_text(
-        '{"mode":"llm","model":"gpt-test","max_attempts":1,"prompt_version":"v3"}'
+    (configs_dir / "runtime_v3.json").write_text(
+        '{"mode":"llm","model":"gpt-test","max_attempts":1,"prompt_version":"v2"}'
     )
 
     registry = ConfigRegistry.from_directory(configs_dir)
-    assert registry.get("v4").settings == settings
-    assert registry.list_versions() == ["v4"]
+    assert registry.get("v3").settings == settings
+    assert registry.list_versions() == ["v3"]
 
 
 def test_prompt_registry_from_agents_directory(tmp_path):
     prompts_dir = tmp_path / "signal_extraction" / "prompts"
     prompts_dir.mkdir(parents=True)
-    (prompts_dir / "v3.txt").write_text("prompt v3")
+    (prompts_dir / "v2.txt").write_text("prompt v2")
 
     registry = PromptRegistry.from_agents_directory(tmp_path)
-    assert registry.get("signal_extraction", "v3").content == "prompt v3"
-    assert registry.list_versions("signal_extraction") == ["v3"]
+    assert registry.get("signal_extraction", "v2").content == "prompt v2"
+    assert registry.list_versions("signal_extraction") == ["v2"]
 
 
 def test_prompt_registry_register_overrides_existing_entry():
@@ -107,10 +107,10 @@ def test_prompt_registry_register_overrides_existing_entry():
 
 @pytest.mark.parametrize(
     "version, mode, prompt_version",
-    [(None, "deterministic", None), ("v2", "llm", "v1")],
+    [("v1", "deterministic", None), ("v2", "llm", "v1")],
 )
 def test_load_runtime_config(version, mode, prompt_version):
-    config = runtime_config(version) if version else runtime_config()
+    config = runtime_config(version)
     agent = config.agent_for(LLMSignalExtractor)
 
     assert agent.mode == mode

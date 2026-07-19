@@ -148,6 +148,10 @@ class RecordingSignalModel:
 
 
 def runtime_config(version: str | None = None, **env: str):
+    """Load a runtime config with an explicit env mapping (never reads `.env`).
+
+    Omitting ``version`` selects the built-in default (``v1`` / deterministic).
+    """
     from app.runtime.config_loader import load_runtime_config
 
     if version is not None:
@@ -190,6 +194,10 @@ def register_runtime_bundle(
 
 @pytest.fixture
 def api_client() -> TestClient:
-    from app.api.main import app
+    """HTTP client over a v1 (deterministic) app — independent of local `.env`."""
+    from app.agents.wiring import create_agents
+    from app.api.main import create_app
 
-    return TestClient(app)
+    return TestClient(
+        create_app(orchestrator=create_agents(runtime_config=runtime_config(version="v1"))[-1])
+    )

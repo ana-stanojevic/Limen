@@ -55,23 +55,28 @@ def _run(
     )
 
 
+def _evaluate(workflow: WorkflowInput):
+    """Deterministic path — pinned so local `.env` LLM configs cannot drift decisions."""
+    return evaluate_workflow(workflow, runtime_config=runtime_config(version="v1"))
+
+
 @pytest.mark.parametrize("fixture_name", WORKFLOW_FIXTURES)
 def test_fixture_decisions(fixture_name):
-    assert evaluate_workflow(workflow_input(fixture_name)).decision.decision == expected_decision(
+    assert _evaluate(workflow_input(fixture_name)).decision.decision == expected_decision(
         fixture_name
     )
 
 
 def test_parsed_job_description():
     profile = UserProfile(**load_fixture("strong_match.json")["user_profile"])
-    output = evaluate_workflow(
+    output = _evaluate(
         WorkflowInput(user_profile=profile, job_description=parse_job_description(AI_ENGINEER_JOB_TEXT))
     )
     assert output.decision.decision == DecisionType.PREPARE
 
 
 def test_severe_seniority_gap_skips():
-    output = evaluate_workflow(
+    output = _evaluate(
         WorkflowInput(
             user_profile=UserProfile(
                 name="Ana",
@@ -105,7 +110,10 @@ def test_create_agents_selects_extractor(runtime_version, extractor_name):
 
 def test_create_agents_rejects_unknown_mode():
     with pytest.raises(ValueError, match="Unsupported signal extractor mode"):
-        create_agents(signal_extractor="magic")
+        create_agents(
+            signal_extractor="magic",
+            runtime_config=runtime_config(version="v1"),
+        )
 
 
 def test_orchestrator_returns_inspectable_run():

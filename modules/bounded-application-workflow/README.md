@@ -13,7 +13,7 @@ Evaluation engine:
 - Signal extraction — structured signals from a job description (`JobSignals`)
 - Profile matching — alignment scoring of profile against extracted signals (`ProfileMatchResult`)
 - Decision policy — bounded thresholds and escalation rules (`WorkflowDecision`)
-- API — evaluate `WorkflowInput` → `WorkflowOutput`
+- API — `POST /workflow/run` runs the compiled LangGraph via the orchestrator; response is `WorkflowOutput`
 
 Agentic workflow:
 
@@ -45,7 +45,7 @@ Local configuration lives in `.env` in this directory (gitignored). The app read
 
 | Variable | Default | When needed |
 |----------|---------|-------------|
-| `RUNTIME_CONFIG_VERSION` | `v1` | Optional. `v1` = deterministic extractor; `v2`/`v3` = LLM-backed extractor (see `runtime_v*.json`) |
+| `RUNTIME_CONFIG_VERSION` | `v1` | Optional. `v1` = deterministic; `v2` = LLM + prompt v1; `v3` = LLM + prompt v2 |
 | `OPENAI_API_KEY` | — | LLM runtime (`v2`/`v3`) or live eval (`pytest -m llm`) |
 
 Example `.env`:
@@ -65,7 +65,7 @@ poetry run pytest -m llm -s    # golden eval (needs OPENAI_API_KEY in .env)
 ## API
 
 - `GET /health` — liveness
-- `POST /workflow/run` — evaluate `WorkflowInput` → `WorkflowOutput`
+- `POST /workflow/run` — `WorkflowInput` → graph-backed `WorkflowOutput`
 
 ## CI
 
