@@ -17,4 +17,4 @@ Default `poetry run pytest` excludes `@pytest.mark.llm` tests.
 
 Per field: precision, recall, F1 (set-based, case-insensitive). Aggregate: macro F1, exact match rate.
 
-Runtime configs: [`app/runtime/configs/`](../app/runtime/configs/) — `v2` (prompt v1), `v3` (prompt v2).
+Runtime configs: [`app/runtime/configs/`](../app/runtime/configs/) — `v2` (LLM + prompt v1), `v3` (LLM + prompt v2).

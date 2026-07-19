@@ -15,8 +15,8 @@ from app.agents.orchestration.orchestrator import DefaultWorkflowOrchestrator
 from app.agents.profile_matching import DefaultProfileMatcher
 from app.agents.signal_extraction import DefaultSignalExtractor, LLMSignalExtractor
 from app.agents.workflow_planning import DefaultWorkflowPlanner
+from app.agents.orchestration.state import WorkflowGraphState
 from app.domain.models import WorkflowInput, WorkflowOutput
-from app.domain.workflow_run import WorkflowRun
 from app.runtime import BoundedAgentRuntime, RuntimeConfig
 from app.runtime.config_loader import load_runtime_config
 
@@ -107,15 +107,23 @@ def create_agents(
     return default_agents()
 
 
-def evaluate_workflow(workflow_input: WorkflowInput) -> WorkflowOutput:
-    output, _ = run_workflow_evaluation(workflow_input)
+def evaluate_workflow(
+    workflow_input: WorkflowInput,
+    *,
+    runtime_config: RuntimeConfig | None = None,
+) -> WorkflowOutput:
+    output, _ = run_workflow_evaluation(
+        workflow_input, runtime_config=runtime_config
+    )
     return output
 
 
 def run_workflow_evaluation(
     workflow_input: WorkflowInput,
-) -> tuple[WorkflowOutput, WorkflowRun]:
-    result = create_agents()[-1].run(
+    *,
+    runtime_config: RuntimeConfig | None = None,
+) -> tuple[WorkflowOutput, WorkflowGraphState]:
+    result = create_agents(runtime_config=runtime_config)[-1].run(
         WorkflowOrchestratorInput(workflow_input=workflow_input)
     )
     return result.output, result.run

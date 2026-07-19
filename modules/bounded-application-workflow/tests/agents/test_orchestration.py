@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 import pytest
 
 from app.agents import (
@@ -7,14 +9,23 @@ from app.agents import (
 )
 from app.agents.decision_rules import DefaultDecisionPolicy
 from app.agents.human_review import PassthroughHumanReviewGate, RecordedHumanReviewGate
+from app.agents.orchestration.audit import HumanReviewRecord, WorkflowEventType
+from app.agents.orchestration.graph import compile_workflow_graph
 from app.agents.orchestration.runner import execute_workflow_pipeline
+from app.agents.orchestration.state import WorkflowGraphState
 from app.agents.profile_matching import DefaultProfileMatcher
 from app.agents.signal_extraction import DefaultSignalExtractor, LLMSignalExtractor
 from app.agents.wiring import create_agents
-from app.agents.workflow_planning.planning import create_workflow_plan
+from app.agents.workflow_planning.planner import create_workflow_plan
 from app.domain.models import DecisionType, JobDescription, UserProfile, WorkflowDecision, WorkflowInput
-from app.domain.workflow_run import WorkflowEventType
-from app.domain.workflow_state import WorkflowState
+from app.agents.workflow_planning.plan import (
+    DECISION,
+    HUMAN_REVIEW,
+    INTAKE,
+    POLICY_EVALUATION,
+    PROFILE_MATCHING,
+    SIGNAL_EXTRACTION,
+)
 from app.runtime import RuntimeConfig
 from app.parser import parse_job_description
 from tests.conftest import (
@@ -44,23 +55,28 @@ def _run(
     )
 
 
+def _evaluate(workflow: WorkflowInput):
+    """Deterministic path — pinned so local `.env` LLM configs cannot drift decisions."""
+    return evaluate_workflow(workflow, runtime_config=runtime_config(version="v1"))
+
+
 @pytest.mark.parametrize("fixture_name", WORKFLOW_FIXTURES)
 def test_fixture_decisions(fixture_name):
-    assert evaluate_workflow(workflow_input(fixture_name)).decision.decision == expected_decision(
+    assert _evaluate(workflow_input(fixture_name)).decision.decision == expected_decision(
         fixture_name
     )
 
 
 def test_parsed_job_description():
     profile = UserProfile(**load_fixture("strong_match.json")["user_profile"])
-    output = evaluate_workflow(
+    output = _evaluate(
         WorkflowInput(user_profile=profile, job_description=parse_job_description(AI_ENGINEER_JOB_TEXT))
     )
     assert output.decision.decision == DecisionType.PREPARE
 
 
 def test_severe_seniority_gap_skips():
-    output = evaluate_workflow(
+    output = _evaluate(
         WorkflowInput(
             user_profile=UserProfile(
                 name="Ana",
@@ -94,7 +110,10 @@ def test_create_agents_selects_extractor(runtime_version, extractor_name):
 
 def test_create_agents_rejects_unknown_mode():
     with pytest.raises(ValueError, match="Unsupported signal extractor mode"):
-        create_agents(signal_extractor="magic")
+        create_agents(
+            signal_extractor="magic",
+            runtime_config=runtime_config(version="v1"),
+        )
 
 
 def test_orchestrator_returns_inspectable_run():
@@ -108,16 +127,16 @@ def test_orchestrator_returns_inspectable_run():
     assert run.events[-1].event_type == WorkflowEventType.RUN_COMPLETED
 
 
-def test_prepare_path_state_history():
+def test_prepare_path_executed_stages():
     _, run = _run(workflow_input("strong_match.json"))
     expected = [
-        WorkflowState.INTAKE,
-        WorkflowState.SIGNAL_EXTRACTION,
-        WorkflowState.PROFILE_MATCHING,
-        WorkflowState.POLICY_EVALUATION,
-        WorkflowState.DECISION,
+        INTAKE,
+        SIGNAL_EXTRACTION,
+        PROFILE_MATCHING,
+        POLICY_EVALUATION,
+        DECISION,
     ]
-    assert run.state_history == expected
+    assert run.executed_stages == expected
     assert run.plan.stages == expected
     assert run.plan_report and run.plan_report.followed_plan
 
@@ -125,7 +144,7 @@ def test_prepare_path_state_history():
 def test_risk_posting_escalates_through_human_review():
     output, run = _run(escalating_workflow_input())
     assert output.decision.decision == DecisionType.ESCALATE
-    assert WorkflowState.HUMAN_REVIEW in run.state_history
+    assert HUMAN_REVIEW in run.executed_stages
     assert run.review and run.review.approved
 
 
@@ -146,7 +165,7 @@ def test_unplanned_human_review_is_reported():
     _, run = _run(workflow)
     assert run.plan_report
     assert not run.plan_report.followed_plan
-    assert run.plan_report.unplanned_stages == [WorkflowState.HUMAN_REVIEW]
+    assert run.plan_report.unplanned_stages == [HUMAN_REVIEW]
 
 
 @pytest.mark.parametrize(
@@ -174,9 +193,9 @@ def test_run_logs_agent_traces():
     _, run = _run(workflow_input("strong_match.json"))
     assert run.events[1].event_type == WorkflowEventType.PLAN_CREATED
     assert [(trace.stage, trace.agent) for trace in run.traces] == [
-        (WorkflowState.SIGNAL_EXTRACTION, "DefaultSignalExtractor"),
-        (WorkflowState.PROFILE_MATCHING, "DefaultProfileMatcher"),
-        (WorkflowState.POLICY_EVALUATION, "DefaultDecisionPolicy"),
+        (SIGNAL_EXTRACTION, "DefaultSignalExtractor"),
+        (PROFILE_MATCHING, "DefaultProfileMatcher"),
+        (POLICY_EVALUATION, "DefaultDecisionPolicy"),
     ]
 
 
@@ -211,12 +230,60 @@ def test_llm_run_trace_includes_execution_metadata():
 
 def test_escalated_run_is_traceable():
     output, run = _run(escalating_workflow_input())
-    chain = run.execution_trace()
-    assert [trace.stage for trace in chain] == [
-        WorkflowState.SIGNAL_EXTRACTION,
-        WorkflowState.PROFILE_MATCHING,
-        WorkflowState.POLICY_EVALUATION,
-        WorkflowState.HUMAN_REVIEW,
-        WorkflowState.DECISION,
+    assert [trace.stage for trace in run.traces] == [
+        SIGNAL_EXTRACTION,
+        PROFILE_MATCHING,
+        POLICY_EVALUATION,
+        HUMAN_REVIEW,
     ]
-    assert chain[-1].output["decision"] == output.decision.decision
+    assert run.events[-1].event_type == WorkflowEventType.RUN_COMPLETED
+    assert run.output is not None
+    assert run.output.decision.decision == output.decision.decision
+
+
+def test_langgraph_checkpointer_reconstructs_run():
+    workflow = workflow_input("strong_match.json")
+    plan = create_workflow_plan(workflow)
+    graph = compile_workflow_graph(
+        extractor=DefaultSignalExtractor(),
+        matcher=DefaultProfileMatcher(),
+        policy=DefaultDecisionPolicy(),
+        review_gate=PassthroughHumanReviewGate(),
+    )
+    initial = WorkflowGraphState.from_workflow_input(workflow, plan)
+    config = {"configurable": {"thread_id": initial.workflow_id}}
+    result = WorkflowGraphState.model_validate(graph.invoke(initial, config))
+    restored = WorkflowGraphState.model_validate(graph.get_state(config).values)
+
+    assert restored.workflow_id == result.workflow_id
+    assert restored.is_complete
+    assert restored.output == result.output
+    assert restored.executed_stages == result.executed_stages
+    assert [event.event_type for event in restored.events] == [
+        event.event_type for event in result.events
+    ]
+
+
+def test_human_review_record_pending_and_revised():
+    original = WorkflowDecision(
+        decision=DecisionType.ESCALATE,
+        score=0.5,
+        risks=["ambiguous scope"],
+    )
+    pending = HumanReviewRecord(
+        reason="Risky posting.",
+        original_decision=original,
+        requested_at=datetime.now(timezone.utc),
+    )
+    assert pending.is_pending is True
+    assert pending.is_revised is False
+
+    revised = pending.model_copy(
+        update={
+            "final_decision": WorkflowDecision(decision=DecisionType.QUEUE, score=0.5),
+            "approved": False,
+            "reviewed_at": datetime.now(timezone.utc),
+        }
+    )
+    assert revised.is_pending is False
+    assert revised.is_revised is True

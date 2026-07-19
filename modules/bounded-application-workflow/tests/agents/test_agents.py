@@ -9,7 +9,7 @@ from app.agents.profile_matching.matching import match_profile_to_job
 from app.agents.signal_extraction import LLMSignalExtractor
 from app.agents.signal_extraction.deterministic import extract_job_signals
 from app.agents.signal_extraction.llm import job_signals_schema
-from app.agents.workflow_planning.planning import create_workflow_plan
+from app.agents.workflow_planning.planner import create_workflow_plan
 from app.domain.job_signals import JobSignals
 from app.domain.models import (
     DecisionType,
@@ -17,7 +17,7 @@ from app.domain.models import (
     ProfileMatchResult,
     UserProfile,
 )
-from app.domain.workflow_state import WorkflowState
+from app.agents.workflow_planning.plan import DECISION, HUMAN_REVIEW
 from pydantic_ai.exceptions import ModelHTTPError
 from app.runtime import ExecutionStatus, RuntimeConfig, default_prompt_registry
 from tests.conftest import (
@@ -151,8 +151,8 @@ def test_build_workflow_decision():
 )
 def test_workflow_plan_stages(workflow, includes_review):
     stages = create_workflow_plan(workflow).stages
-    assert stages[-1] == WorkflowState.DECISION
-    assert (WorkflowState.HUMAN_REVIEW in stages) is includes_review
+    assert stages[-1] == DECISION
+    assert (HUMAN_REVIEW in stages) is includes_review
 
 
 def test_prompt_and_schema():
