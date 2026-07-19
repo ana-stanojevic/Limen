@@ -1,10 +1,35 @@
-from app.agents.contracts import WorkflowPlannerInput, WorkflowPlannerOutput
-from app.agents.workflow_planning.planning import create_workflow_plan
+from app.agents.workflow_planning.plan import (
+    DECISION,
+    HUMAN_REVIEW,
+    INTAKE,
+    POLICY_EVALUATION,
+    PROFILE_MATCHING,
+    SIGNAL_EXTRACTION,
+    PlanExecutionReport,
+    WorkflowPlan,
+    compare_plan,
+    default_workflow_plan,
+)
 
-__all__ = ["DefaultWorkflowPlanner"]
+__all__ = [
+    "DECISION",
+    "DefaultWorkflowPlanner",
+    "HUMAN_REVIEW",
+    "INTAKE",
+    "POLICY_EVALUATION",
+    "PROFILE_MATCHING",
+    "PlanExecutionReport",
+    "SIGNAL_EXTRACTION",
+    "WorkflowPlan",
+    "compare_plan",
+    "create_workflow_plan",
+    "default_workflow_plan",
+]
 
 
-class DefaultWorkflowPlanner:
-    def run(self, agent_input: WorkflowPlannerInput) -> WorkflowPlannerOutput:
-        plan = create_workflow_plan(agent_input.workflow_input)
-        return WorkflowPlannerOutput(plan=plan)
+def __getattr__(name: str):
+    if name in {"DefaultWorkflowPlanner", "create_workflow_plan"}:
+        from app.agents.workflow_planning import planner
+
+        return getattr(planner, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

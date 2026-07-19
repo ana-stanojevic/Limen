@@ -17,13 +17,12 @@ Evaluation engine:
 
 Agentic workflow:
 
-- Workflow state machine — explicit states and validated transitions (`WorkflowStateMachine`)
-- Workflow run model — every run recorded and reconstructable (`WorkflowRun`)
+- LangGraph orchestration — `StateGraph` nodes with checkpointed `WorkflowGraphState`
 - Planning layer — stages selected before execution, plan vs. execution compared (`WorkflowPlan`)
 - Agent contracts — typed input/output Protocol per agent
-- Orchestrator — state-managed execution of the agent pipeline
-- Human review path — escalated decisions approved or revised (`HumanReviewRecord`)
-- Audit trail — timestamped events and per-agent traces (`WorkflowEvent`, `AgentTrace`)
+- Orchestrator — coordinates planner + compiled graph
+- Human review path — escalated decisions approved or revised (`HumanReviewRecord` on graph state)
+- Thin audit trail on graph state — events and per-agent traces (`app/agents/orchestration/audit.py`); deeper observability will move to Logfire / OpenTelemetry
 
 Agent runtime:
 

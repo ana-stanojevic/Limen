@@ -1,4 +1,6 @@
-from typing import Optional, Protocol
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Optional, Protocol
 
 from pydantic import BaseModel, Field
 
@@ -11,8 +13,11 @@ from app.domain.models import (
     WorkflowInput,
     WorkflowOutput,
 )
-from app.domain.workflow_run import WorkflowPlan, WorkflowRun
+from app.agents.workflow_planning.plan import WorkflowPlan
 from app.runtime.result import AgentExecutionResult
+
+if TYPE_CHECKING:
+    from app.agents.orchestration.state import WorkflowGraphState
 
 
 class WorkflowPlannerInput(BaseModel):
@@ -112,11 +117,11 @@ class WorkflowOrchestratorInput(BaseModel):
 
 class WorkflowOrchestratorOutput(BaseModel):
     output: WorkflowOutput
-    run: WorkflowRun
+    run: WorkflowGraphState
 
 
 class WorkflowOrchestrator(Protocol):
-    """Manage state transitions and coordinate agent stages."""
+    """Coordinate planner + graph execution for one workflow input."""
 
     def run(
         self, agent_input: WorkflowOrchestratorInput

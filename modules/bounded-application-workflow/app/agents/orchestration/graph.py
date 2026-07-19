@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Any
 
 from langgraph.checkpoint.memory import MemorySaver
+from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
@@ -17,10 +19,35 @@ from app.agents.contracts import (
     SignalExtractorInput,
 )
 from app.agents.decision_rules.rules import review_reason
+from app.agents.orchestration.audit import (
+    AgentTrace,
+    HumanReviewRecord,
+    WorkflowEvent,
+    WorkflowEventType,
+)
 from app.agents.orchestration.state import WorkflowGraphState
-from app.domain.models import DecisionType, WorkflowOutput
-from app.domain.workflow_run import WorkflowEventType, WorkflowRun
-from app.domain.workflow_state import WorkflowState
+from app.domain.job_signals import JobSignals
+from app.domain.models import (
+    DecisionType,
+    JobDescription,
+    ProfileMatchResult,
+    UserProfile,
+    WorkflowDecision,
+    WorkflowInput,
+    WorkflowOutput,
+)
+from app.agents.workflow_planning.plan import (
+    DECISION,
+    HUMAN_REVIEW,
+    INTAKE,
+    POLICY_EVALUATION,
+    PROFILE_MATCHING,
+    SIGNAL_EXTRACTION,
+    PlanExecutionReport,
+    WorkflowPlan,
+    compare_plan,
+)
+from app.runtime.result import AgentExecutionResult, ExecutionStatus
 
 _NEXT_STEPS: dict[DecisionType, list[str]] = {
     DecisionType.PREPARE: [
@@ -44,6 +71,36 @@ _NEXT_STEPS: dict[DecisionType, list[str]] = {
     ],
 }
 
+_CHECKPOINT_TYPES = (
+    UserProfile,
+    JobDescription,
+    WorkflowInput,
+    WorkflowOutput,
+    WorkflowDecision,
+    ProfileMatchResult,
+    DecisionType,
+    JobSignals,
+    WorkflowPlan,
+    WorkflowEvent,
+    WorkflowEventType,
+    AgentTrace,
+    HumanReviewRecord,
+    PlanExecutionReport,
+    AgentExecutionResult,
+    ExecutionStatus,
+)
+
+
+def default_checkpointer() -> MemorySaver:
+    """In-memory checkpointer with an allowlist for workflow domain types."""
+    return MemorySaver(
+        serde=JsonPlusSerializer(allowed_msgpack_modules=_CHECKPOINT_TYPES)
+    )
+
+
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
+
 
 def _input_summary(state: WorkflowGraphState) -> str:
     company = state.job_description.company or "an unspecified company"
@@ -53,36 +110,103 @@ def _input_summary(state: WorkflowGraphState) -> str:
     )
 
 
+def _event(
+    event_type: WorkflowEventType,
+    stage: str,
+    message: str = "",
+    *,
+    timestamp: datetime | None = None,
+) -> WorkflowEvent:
+    return WorkflowEvent(
+        event_type=event_type,
+        stage=stage,
+        timestamp=timestamp or _now(),
+        message=message,
+    )
+
+
+def _enter_stage(
+    events: list[WorkflowEvent],
+    stage: str,
+    message: str = "",
+) -> list[WorkflowEvent]:
+    return [*events, _event(WorkflowEventType.STAGE_ENTERED, stage, message)]
+
+
+def _record_agent(
+    traces: list[AgentTrace],
+    events: list[WorkflowEvent],
+    *,
+    stage: str,
+    agent: str,
+    output: Any,
+) -> tuple[list[AgentTrace], list[WorkflowEvent]]:
+    timestamp = _now()
+    traces = [
+        *traces,
+        AgentTrace(
+            stage=stage,
+            agent=agent,
+            output=output.model_dump(),
+            timestamp=timestamp,
+        ),
+    ]
+    events = [
+        *events,
+        _event(
+            WorkflowEventType.AGENT_COMPLETED,
+            stage,
+            f"Agent '{agent}' completed.",
+            timestamp=timestamp,
+        ),
+    ]
+    return traces, events
+
+
 def build_workflow_graph(
     *,
     extractor: SignalExtractor,
     matcher: ProfileMatcher,
     policy: DecisionPolicy,
     review_gate: HumanReviewGate | None,
-    run: WorkflowRun,
 ) -> StateGraph:
 
     def intake(state: WorkflowGraphState) -> dict[str, Any]:
-        run.record_event(
-            WorkflowEventType.RUN_STARTED,
-            WorkflowState.INTAKE,
-            "Workflow run started.",
-        )
-        run.record_plan()
-        return {}
+        planned = " -> ".join(state.plan.stages)
+        return {
+            "events": [
+                *state.events,
+                _event(WorkflowEventType.RUN_STARTED, INTAKE, "Workflow run started."),
+                _event(
+                    WorkflowEventType.PLAN_CREATED,
+                    INTAKE,
+                    f"Planner selected stages: {planned}.",
+                ),
+            ]
+        }
 
     def signal_extraction(state: WorkflowGraphState) -> dict[str, Any]:
-        run.transition_to(WorkflowState.SIGNAL_EXTRACTION)
+        events = _enter_stage(state.events, SIGNAL_EXTRACTION)
         output = extractor.run(
             SignalExtractorInput(job_description=state.job_description)
         )
-        run.record_agent_trace(type(extractor).__name__, output)
-        return {"signals": output.signals}
+        traces, events = _record_agent(
+            state.traces,
+            events,
+            stage=SIGNAL_EXTRACTION,
+            agent=type(extractor).__name__,
+            output=output,
+        )
+        return {
+            "signals": output.signals,
+            "events": events,
+            "traces": traces,
+        }
 
     def profile_matching(state: WorkflowGraphState) -> dict[str, Any]:
         if state.signals is None:
             raise RuntimeError("profile_matching requires signals on graph state")
-        run.transition_to(WorkflowState.PROFILE_MATCHING)
+        events = _enter_stage(state.events, PROFILE_MATCHING)
         output = matcher.run(
             ProfileMatcherInput(
                 user_profile=state.user_profile,
@@ -90,28 +214,62 @@ def build_workflow_graph(
                 signals=state.signals,
             )
         )
-        run.record_agent_trace(type(matcher).__name__, output)
-        return {"match": output.match}
+        traces, events = _record_agent(
+            state.traces,
+            events,
+            stage=PROFILE_MATCHING,
+            agent=type(matcher).__name__,
+            output=output,
+        )
+        return {
+            "match": output.match,
+            "events": events,
+            "traces": traces,
+        }
 
     def policy_evaluation(state: WorkflowGraphState) -> dict[str, Any]:
         if state.signals is None or state.match is None:
             raise RuntimeError("policy_evaluation requires signals and match")
-        run.transition_to(WorkflowState.POLICY_EVALUATION)
+        events = _enter_stage(state.events, POLICY_EVALUATION)
         output = policy.run(
             DecisionPolicyInput(match=state.match, signals=state.signals)
         )
-        run.record_agent_trace(type(policy).__name__, output)
-        return {"decision": output.decision}
+        traces, events = _record_agent(
+            state.traces,
+            events,
+            stage=POLICY_EVALUATION,
+            agent=type(policy).__name__,
+            output=output,
+        )
+        return {
+            "decision": output.decision,
+            "events": events,
+            "traces": traces,
+        }
 
     def decision(state: WorkflowGraphState) -> dict[str, Any]:
         if state.decision is None or state.signals is None or state.match is None:
             raise RuntimeError("decision requires decision, signals, and match")
 
         current = state.decision
+        events = list(state.events)
+        traces = list(state.traces)
+        review = state.review
+
+        # Escalate -> review stays here for now (issue 79 → LangGraph interrupt).
         if current.decision == DecisionType.ESCALATE:
             reason = review_reason(current)
-            run.transition_to(WorkflowState.HUMAN_REVIEW, reason)
-            run.request_review(reason, current)
+            events = _enter_stage(events, HUMAN_REVIEW, reason)
+            if review is not None:
+                raise RuntimeError("A review was already recorded for this run")
+            review = HumanReviewRecord(
+                reason=reason,
+                original_decision=current,
+                requested_at=_now(),
+            )
+            events.append(
+                _event(WorkflowEventType.REVIEW_REQUESTED, HUMAN_REVIEW, reason)
+            )
             if review_gate is not None:
                 gate_output = review_gate.run(
                     HumanReviewGateInput(
@@ -121,37 +279,78 @@ def build_workflow_graph(
                         reason=reason,
                     )
                 )
-                run.record_agent_trace(type(review_gate).__name__, gate_output)
-                review = run.resolve_review(
-                    final_decision=gate_output.decision,
-                    approved=gate_output.approved,
-                    reviewer_notes=gate_output.reviewer_notes,
+                traces, events = _record_agent(
+                    traces,
+                    events,
+                    stage=HUMAN_REVIEW,
+                    agent=type(review_gate).__name__,
+                    output=gate_output,
+                )
+                review = review.model_copy(
+                    update={
+                        "final_decision": gate_output.decision,
+                        "approved": gate_output.approved,
+                        "reviewer_notes": gate_output.reviewer_notes,
+                        "reviewed_at": _now(),
+                    }
+                )
+                outcome = (
+                    "approved"
+                    if not review.is_revised
+                    else f"revised to '{gate_output.decision.decision.value}'"
+                )
+                events.append(
+                    _event(
+                        WorkflowEventType.REVIEW_COMPLETED,
+                        HUMAN_REVIEW,
+                        f"Human review {outcome}.",
+                    )
                 )
                 current = review.final_decision or current
 
-        run.transition_to(WorkflowState.DECISION)
+        events = _enter_stage(events, DECISION)
         output = WorkflowOutput(
             input_summary=_input_summary(state),
             decision=current,
             job_signals=state.signals,
             recommended_next_steps=list(_NEXT_STEPS[current.decision]),
         )
-        run.complete(output)
-        return {"decision": current, "output": output}
+        completed_at = _now()
+        executed = [
+            INTAKE,
+            *[
+                event.stage
+                for event in events
+                if event.event_type == WorkflowEventType.STAGE_ENTERED
+            ],
+        ]
+        plan_report = compare_plan(state.plan, executed)
+        events.append(
+            _event(WorkflowEventType.RUN_COMPLETED, DECISION, "Workflow run completed.")
+        )
+        return {
+            "decision": current,
+            "output": output,
+            "review": review,
+            "events": events,
+            "traces": traces,
+            "completed_at": completed_at,
+            "plan_report": plan_report,
+        }
 
     graph = StateGraph(WorkflowGraphState)
-    graph.add_node("intake", intake)
-    graph.add_node("signal_extraction", signal_extraction)
-    graph.add_node("profile_matching", profile_matching)
-    graph.add_node("policy_evaluation", policy_evaluation)
-    graph.add_node("decision", decision)
+    graph.add_node(INTAKE, intake)
+    graph.add_node(SIGNAL_EXTRACTION, signal_extraction)
+    graph.add_node(PROFILE_MATCHING, profile_matching)
+    graph.add_node(POLICY_EVALUATION, policy_evaluation)
+    graph.add_node(DECISION, decision)
 
-    graph.add_edge(START, "intake")
-    graph.add_edge("intake", "signal_extraction")
-    graph.add_edge("signal_extraction", "profile_matching")
-    graph.add_edge("profile_matching", "policy_evaluation")
-    graph.add_edge("policy_evaluation", "decision")
-    graph.add_edge("decision", END)
+    graph.add_edge(START, INTAKE)
+    graph.add_edge(INTAKE, SIGNAL_EXTRACTION)
+    graph.add_edge(SIGNAL_EXTRACTION, PROFILE_MATCHING)
+    graph.add_edge(PROFILE_MATCHING, POLICY_EVALUATION)
+    graph.add_edge(POLICY_EVALUATION, DECISION)
+    graph.add_edge(DECISION, END)
     return graph
 
 
@@ -161,7 +360,6 @@ def compile_workflow_graph(
     matcher: ProfileMatcher,
     policy: DecisionPolicy,
     review_gate: HumanReviewGate | None,
-    run: WorkflowRun,
     checkpointer: MemorySaver | None = None,
 ) -> CompiledStateGraph:
     return build_workflow_graph(
@@ -169,5 +367,4 @@ def compile_workflow_graph(
         matcher=matcher,
         policy=policy,
         review_gate=review_gate,
-        run=run,
-    ).compile(checkpointer=checkpointer or MemorySaver())
+    ).compile(checkpointer=checkpointer or default_checkpointer())
