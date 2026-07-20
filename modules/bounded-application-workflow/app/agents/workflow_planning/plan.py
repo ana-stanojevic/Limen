@@ -1,6 +1,5 @@
 from pydantic import BaseModel, Field
 
-# Graph node ids — also used for the temporary human_review stage until #79.
 INTAKE = "intake"
 SIGNAL_EXTRACTION = "signal_extraction"
 PROFILE_MATCHING = "profile_matching"

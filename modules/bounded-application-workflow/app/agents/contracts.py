@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Optional, Protocol
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from app.domain.job_signals import JobSignals
 from app.domain.models import (
@@ -86,29 +86,6 @@ class DecisionPolicy(Protocol):
     """Apply bounded thresholds and escalation rules."""
 
     def run(self, agent_input: DecisionPolicyInput) -> DecisionPolicyOutput: ...
-
-
-class HumanReviewGateInput(BaseModel):
-    """Escalated decision with evaluation context for human review."""
-
-    decision: WorkflowDecision
-    match: ProfileMatchResult
-    signals: JobSignals
-    reason: str = Field(default="")
-
-
-class HumanReviewGateOutput(BaseModel):
-    """Human-approved or revised decision."""
-
-    decision: WorkflowDecision
-    approved: bool
-    reviewer_notes: str = Field(default="")
-
-
-class HumanReviewGate(Protocol):
-    """Pause execution for ambiguous or high-stakes decisions."""
-
-    def run(self, agent_input: HumanReviewGateInput) -> HumanReviewGateOutput: ...
 
 
 class WorkflowOrchestratorInput(BaseModel):

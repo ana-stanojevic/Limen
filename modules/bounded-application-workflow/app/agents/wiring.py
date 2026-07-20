@@ -2,7 +2,6 @@
 
 from app.agents.contracts import (
     DecisionPolicy,
-    HumanReviewGate,
     ProfileMatcher,
     SignalExtractor,
     WorkflowOrchestrator,
@@ -10,7 +9,6 @@ from app.agents.contracts import (
     WorkflowPlanner,
 )
 from app.agents.decision_rules import DefaultDecisionPolicy
-from app.agents.human_review import PassthroughHumanReviewGate
 from app.agents.orchestration.orchestrator import DefaultWorkflowOrchestrator
 from app.agents.profile_matching import DefaultProfileMatcher
 from app.agents.signal_extraction import DefaultSignalExtractor, LLMSignalExtractor
@@ -28,22 +26,19 @@ def default_agents() -> tuple[
     SignalExtractor,
     ProfileMatcher,
     DecisionPolicy,
-    HumanReviewGate,
     WorkflowOrchestrator,
 ]:
     planner = DefaultWorkflowPlanner()
     extractor = DefaultSignalExtractor()
     matcher = DefaultProfileMatcher()
     policy = DefaultDecisionPolicy()
-    review_gate = PassthroughHumanReviewGate()
     orchestrator = DefaultWorkflowOrchestrator(
         planner=planner,
         extractor=extractor,
         matcher=matcher,
         policy=policy,
-        review_gate=review_gate,
     )
-    return planner, extractor, matcher, policy, review_gate, orchestrator
+    return planner, extractor, matcher, policy, orchestrator
 
 
 def llm_agents(
@@ -55,7 +50,6 @@ def llm_agents(
     SignalExtractor,
     ProfileMatcher,
     DecisionPolicy,
-    HumanReviewGate,
     WorkflowOrchestrator,
 ]:
     """Wire the workflow with a Pydantic AI signal extractor and deterministic fallback."""
@@ -69,15 +63,13 @@ def llm_agents(
     )
     matcher = DefaultProfileMatcher()
     policy = DefaultDecisionPolicy()
-    review_gate = PassthroughHumanReviewGate()
     orchestrator = DefaultWorkflowOrchestrator(
         planner=planner,
         extractor=extractor,
         matcher=matcher,
         policy=policy,
-        review_gate=review_gate,
     )
-    return planner, extractor, matcher, policy, review_gate, orchestrator
+    return planner, extractor, matcher, policy, orchestrator
 
 
 def create_agents(
@@ -90,7 +82,6 @@ def create_agents(
     SignalExtractor,
     ProfileMatcher,
     DecisionPolicy,
-    HumanReviewGate,
     WorkflowOrchestrator,
 ]:
     """Select agent wiring from the runtime config registry or explicit overrides."""

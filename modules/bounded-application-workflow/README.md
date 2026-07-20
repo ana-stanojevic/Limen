@@ -21,7 +21,7 @@ Agentic workflow:
 - Planning layer — stages selected before execution, plan vs. execution compared (`WorkflowPlan`)
 - Agent contracts — typed input/output Protocol per agent
 - Orchestrator — coordinates planner + compiled graph
-- Human review path — escalated decisions approved or revised (`HumanReviewRecord` on graph state)
+- Human review path — escalation pauses via LangGraph `interrupt`; approve/revise resumes with `Command` (`HumanReviewRecord` on graph state)
 - Thin audit trail on graph state — events and per-agent traces (`app/agents/orchestration/audit.py`); deeper observability will move to Logfire / OpenTelemetry
 
 Agent runtime:
