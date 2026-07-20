@@ -60,6 +60,14 @@ Details: [runtime](../modules/bounded-application-workflow/app/runtime/README.md
 
 ---
 
+## Framework Migration — Milestone 5
+
+Migrates the M1–M4 backend onto the stack in [ADR 0001](adr/0001-adopt-modern-agent-stack.md): Pydantic AI (agents), LangGraph (orchestration / state / HITL), Pydantic Logfire (observability), Pydantic Evals (evaluation). Contracts and decision policy stay the same; hand-built primitives are replaced behind them.
+
+**Observability (Logfire):** OpenTelemetry traces across FastAPI, LangGraph, and Pydantic AI (`app/observability.py`) capture per-request / per-node / per-agent latency, tokens, cost, and model settings. Structured agent outputs and HITL audit stay on checkpointed graph state (thin `events` / `traces`); Logfire does not replace that domain record. Optional `LOGFIRE_TOKEN` in the module `.env` — works without a token via console / OTel fallback. Details: [module README](../modules/bounded-application-workflow/README.md#observability).
+
+---
+
 ## Influences
 
 - [OpenClaw](https://github.com/openclaw/openclaw)

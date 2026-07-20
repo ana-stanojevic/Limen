@@ -12,7 +12,7 @@ dependencies = [
     "openai>=2.46",
     "pydantic-ai>=2.13",
     "langgraph>=1.2",
-    "logfire>=4.37",
+    "logfire[fastapi]>=4.37",
     "pydantic-evals>=2.13",
 ]
 
