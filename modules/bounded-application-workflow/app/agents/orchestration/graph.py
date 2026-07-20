@@ -1,24 +1,28 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Literal
 
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
+from langgraph.types import interrupt
 
 from app.agents.contracts import (
     DecisionPolicy,
     DecisionPolicyInput,
-    HumanReviewGate,
-    HumanReviewGateInput,
     ProfileMatcher,
     ProfileMatcherInput,
     SignalExtractor,
     SignalExtractorInput,
 )
 from app.agents.decision_rules.rules import review_reason
+from app.agents.human_review import (
+    HumanReviewInterrupt,
+    HumanReviewResume,
+    parse_review_resume,
+)
 from app.agents.orchestration.audit import (
     AgentTrace,
     HumanReviewRecord,
@@ -85,6 +89,8 @@ _CHECKPOINT_TYPES = (
     WorkflowEventType,
     AgentTrace,
     HumanReviewRecord,
+    HumanReviewInterrupt,
+    HumanReviewResume,
     PlanExecutionReport,
     AgentExecutionResult,
     ExecutionStatus,
@@ -168,7 +174,6 @@ def build_workflow_graph(
     extractor: SignalExtractor,
     matcher: ProfileMatcher,
     policy: DecisionPolicy,
-    review_gate: HumanReviewGate | None,
 ) -> StateGraph:
 
     def intake(state: WorkflowGraphState) -> dict[str, Any]:
@@ -247,73 +252,72 @@ def build_workflow_graph(
             "traces": traces,
         }
 
+    def route_after_policy(
+        state: WorkflowGraphState,
+    ) -> Literal["human_review", "decision"]:
+        if state.decision is not None and state.decision.decision == DecisionType.ESCALATE:
+            return HUMAN_REVIEW
+        return DECISION
+
+    def human_review(state: WorkflowGraphState) -> dict[str, Any]:
+        if state.decision is None:
+            raise RuntimeError("human_review requires a decision on graph state")
+        if state.review is not None and not state.review.is_pending:
+            raise RuntimeError("A review was already recorded for this run")
+
+        reason = review_reason(state.decision)
+        # interrupt() raises on first entry (graph pauses). After Command(resume=...),
+        # LangGraph restarts this node from the top; interrupt() then returns the
+        # resume payload instead of raising. State updates below only persist then.
+        resume_value = interrupt(
+            HumanReviewInterrupt(
+                reason=reason,
+                decision=state.decision,
+                workflow_id=state.workflow_id,
+                requested_at=_now(),
+            ).model_dump(mode="json")
+        )
+        gate_output = parse_review_resume(resume_value)
+        review = HumanReviewRecord(
+            reason=reason,
+            original_decision=state.decision,
+            final_decision=gate_output.decision,
+            approved=gate_output.approved,
+            reviewer_notes=gate_output.reviewer_notes,
+            requested_at=gate_output.requested_at,
+            reviewed_at=_now(),
+        )
+        outcome = (
+            "approved"
+            if not review.is_revised
+            else f"revised to '{gate_output.decision.decision.value}'"
+        )
+        events = _enter_stage(state.events, HUMAN_REVIEW, reason)
+        events = [
+            *events,
+            _event(WorkflowEventType.REVIEW_REQUESTED, HUMAN_REVIEW, reason),
+            _event(
+                WorkflowEventType.REVIEW_COMPLETED,
+                HUMAN_REVIEW,
+                f"Human review {outcome}.",
+            ),
+        ]
+        return {
+            "decision": gate_output.decision,
+            "review": review,
+            "events": events,
+        }
+
     def decision(state: WorkflowGraphState) -> dict[str, Any]:
         if state.decision is None or state.signals is None or state.match is None:
             raise RuntimeError("decision requires decision, signals, and match")
 
-        current = state.decision
-        events = list(state.events)
-        traces = list(state.traces)
-        review = state.review
-
-        # Escalate -> review stays here for now (issue 79 → LangGraph interrupt).
-        if current.decision == DecisionType.ESCALATE:
-            reason = review_reason(current)
-            events = _enter_stage(events, HUMAN_REVIEW, reason)
-            if review is not None:
-                raise RuntimeError("A review was already recorded for this run")
-            review = HumanReviewRecord(
-                reason=reason,
-                original_decision=current,
-                requested_at=_now(),
-            )
-            events.append(
-                _event(WorkflowEventType.REVIEW_REQUESTED, HUMAN_REVIEW, reason)
-            )
-            if review_gate is not None:
-                gate_output = review_gate.run(
-                    HumanReviewGateInput(
-                        decision=current,
-                        match=state.match,
-                        signals=state.signals,
-                        reason=reason,
-                    )
-                )
-                traces, events = _record_agent(
-                    traces,
-                    events,
-                    stage=HUMAN_REVIEW,
-                    agent=type(review_gate).__name__,
-                    output=gate_output,
-                )
-                review = review.model_copy(
-                    update={
-                        "final_decision": gate_output.decision,
-                        "approved": gate_output.approved,
-                        "reviewer_notes": gate_output.reviewer_notes,
-                        "reviewed_at": _now(),
-                    }
-                )
-                outcome = (
-                    "approved"
-                    if not review.is_revised
-                    else f"revised to '{gate_output.decision.decision.value}'"
-                )
-                events.append(
-                    _event(
-                        WorkflowEventType.REVIEW_COMPLETED,
-                        HUMAN_REVIEW,
-                        f"Human review {outcome}.",
-                    )
-                )
-                current = review.final_decision or current
-
-        events = _enter_stage(events, DECISION)
+        events = _enter_stage(state.events, DECISION)
         output = WorkflowOutput(
             input_summary=_input_summary(state),
-            decision=current,
+            decision=state.decision,
             job_signals=state.signals,
-            recommended_next_steps=list(_NEXT_STEPS[current.decision]),
+            recommended_next_steps=list(_NEXT_STEPS[state.decision.decision]),
         )
         completed_at = _now()
         executed = [
@@ -329,11 +333,8 @@ def build_workflow_graph(
             _event(WorkflowEventType.RUN_COMPLETED, DECISION, "Workflow run completed.")
         )
         return {
-            "decision": current,
             "output": output,
-            "review": review,
             "events": events,
-            "traces": traces,
             "completed_at": completed_at,
             "plan_report": plan_report,
         }
@@ -343,13 +344,19 @@ def build_workflow_graph(
     graph.add_node(SIGNAL_EXTRACTION, signal_extraction)
     graph.add_node(PROFILE_MATCHING, profile_matching)
     graph.add_node(POLICY_EVALUATION, policy_evaluation)
+    graph.add_node(HUMAN_REVIEW, human_review)
     graph.add_node(DECISION, decision)
 
     graph.add_edge(START, INTAKE)
     graph.add_edge(INTAKE, SIGNAL_EXTRACTION)
     graph.add_edge(SIGNAL_EXTRACTION, PROFILE_MATCHING)
     graph.add_edge(PROFILE_MATCHING, POLICY_EVALUATION)
-    graph.add_edge(POLICY_EVALUATION, DECISION)
+    graph.add_conditional_edges(
+        POLICY_EVALUATION,
+        route_after_policy,
+        {HUMAN_REVIEW: HUMAN_REVIEW, DECISION: DECISION},
+    )
+    graph.add_edge(HUMAN_REVIEW, DECISION)
     graph.add_edge(DECISION, END)
     return graph
 
@@ -359,12 +366,10 @@ def compile_workflow_graph(
     extractor: SignalExtractor,
     matcher: ProfileMatcher,
     policy: DecisionPolicy,
-    review_gate: HumanReviewGate | None,
     checkpointer: MemorySaver | None = None,
 ) -> CompiledStateGraph:
     return build_workflow_graph(
         extractor=extractor,
         matcher=matcher,
         policy=policy,
-        review_gate=review_gate,
     ).compile(checkpointer=checkpointer or default_checkpointer())

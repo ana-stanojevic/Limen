@@ -4,14 +4,18 @@ import pytest
 
 from app.agents import (
     WorkflowOrchestratorInput,
+    approve_escalation,
     default_agents,
     evaluate_workflow,
+    revise_escalation,
 )
 from app.agents.decision_rules import DefaultDecisionPolicy
-from app.agents.human_review import PassthroughHumanReviewGate, RecordedHumanReviewGate
 from app.agents.orchestration.audit import HumanReviewRecord, WorkflowEventType
 from app.agents.orchestration.graph import compile_workflow_graph
-from app.agents.orchestration.runner import execute_workflow_pipeline
+from app.agents.orchestration.runner import (
+    execute_workflow_pipeline,
+    resume_workflow_pipeline,
+)
 from app.agents.orchestration.state import WorkflowGraphState
 from app.agents.profile_matching import DefaultProfileMatcher
 from app.agents.signal_extraction import DefaultSignalExtractor, LLMSignalExtractor
@@ -40,19 +44,26 @@ from tests.conftest import (
 )
 
 
-def _run(
-    workflow: WorkflowInput,
-    *,
-    review_gate: PassthroughHumanReviewGate | RecordedHumanReviewGate | None = None,
-):
-    return execute_workflow_pipeline(
+def _run(workflow: WorkflowInput):
+    """Run to completion (auto-approve any escalation interrupt)."""
+    result = execute_workflow_pipeline(
         workflow,
         plan=create_workflow_plan(workflow),
         extractor=DefaultSignalExtractor(),
         matcher=DefaultProfileMatcher(),
         policy=DefaultDecisionPolicy(),
-        review_gate=review_gate or PassthroughHumanReviewGate(),
     )
+    if result.is_interrupted:
+        assert result.review_interrupt is not None
+        result = resume_workflow_pipeline(
+            result,
+            approve_escalation(
+                result.review_interrupt.decision,
+                requested_at=result.review_interrupt.requested_at,
+            ),
+        )
+    assert result.state.output is not None
+    return result.state.output, result.state
 
 
 def _evaluate(workflow: WorkflowInput):
@@ -169,24 +180,75 @@ def test_unplanned_human_review_is_reported():
 
 
 @pytest.mark.parametrize(
-    "review_gate,expected_decision,is_revised",
+    "resume_factory,expected_decision,is_revised",
     [
         (
-            RecordedHumanReviewGate(
-                revised_decision=WorkflowDecision(decision=DecisionType.QUEUE, score=0.5),
+            lambda interrupt: revise_escalation(
+                WorkflowDecision(decision=DecisionType.QUEUE, score=0.5),
+                requested_at=interrupt.requested_at,
                 reviewer_notes="Scope clarified with recruiter.",
             ),
             DecisionType.QUEUE,
             True,
         ),
-        (RecordedHumanReviewGate(), DecisionType.ESCALATE, False),
+        (
+            lambda interrupt: approve_escalation(
+                interrupt.decision,
+                requested_at=interrupt.requested_at,
+            ),
+            DecisionType.ESCALATE,
+            False,
+        ),
     ],
 )
-def test_review_gate_outcomes(review_gate, expected_decision, is_revised):
-    output, run = _run(escalating_workflow_input(), review_gate=review_gate)
-    assert output.decision.decision == expected_decision
-    assert run.review
-    assert run.review.is_revised is is_revised
+def test_review_resume_outcomes(resume_factory, expected_decision, is_revised):
+    workflow = escalating_workflow_input()
+    paused = execute_workflow_pipeline(
+        workflow,
+        plan=create_workflow_plan(workflow),
+        extractor=DefaultSignalExtractor(),
+        matcher=DefaultProfileMatcher(),
+        policy=DefaultDecisionPolicy(),
+    )
+    assert paused.is_interrupted
+    assert paused.review_interrupt is not None
+    assert paused.state.output is None
+
+    resumed = resume_workflow_pipeline(
+        paused,
+        resume_factory(paused.review_interrupt),
+    )
+    assert resumed.state.output is not None
+    assert resumed.state.output.decision.decision == expected_decision
+    assert resumed.state.review is not None
+    assert resumed.state.review.is_revised is is_revised
+    assert resumed.state.review.requested_at == paused.review_interrupt.requested_at
+    assert resumed.state.review.reviewed_at is not None
+    assert resumed.state.review.reviewed_at >= resumed.state.review.requested_at
+
+
+def test_escalation_pauses_before_decision():
+    workflow = escalating_workflow_input()
+    paused = execute_workflow_pipeline(
+        workflow,
+        plan=create_workflow_plan(workflow),
+        extractor=DefaultSignalExtractor(),
+        matcher=DefaultProfileMatcher(),
+        policy=DefaultDecisionPolicy(),
+    )
+
+    assert paused.is_interrupted
+    assert paused.review_interrupt is not None
+    assert paused.review_interrupt.decision.decision == DecisionType.ESCALATE
+    assert paused.state.decision is not None
+    assert paused.state.decision.decision == DecisionType.ESCALATE
+    assert paused.state.output is None
+    assert paused.state.review is None
+    assert HUMAN_REVIEW not in paused.state.executed_stages
+    assert DECISION not in paused.state.executed_stages
+    assert paused.graph.get_state(
+        {"configurable": {"thread_id": paused.workflow_id}}
+    ).next == (HUMAN_REVIEW,)
 
 
 def test_run_logs_agent_traces():
@@ -201,7 +263,7 @@ def test_run_logs_agent_traces():
 
 def test_llm_run_trace_includes_execution_metadata():
     workflow = workflow_input("strong_match.json")
-    _, run = execute_workflow_pipeline(
+    result = execute_workflow_pipeline(
         workflow,
         plan=create_workflow_plan(workflow),
         extractor=LLMSignalExtractor(
@@ -213,8 +275,9 @@ def test_llm_run_trace_includes_execution_metadata():
         ),
         matcher=DefaultProfileMatcher(),
         policy=DefaultDecisionPolicy(),
-        review_gate=PassthroughHumanReviewGate(),
     )
+    assert result.state.output is not None
+    run = result.state
 
     extractor_trace = run.traces[0]
     assert extractor_trace.agent == "LLMSignalExtractor"
@@ -234,7 +297,15 @@ def test_escalated_run_is_traceable():
         SIGNAL_EXTRACTION,
         PROFILE_MATCHING,
         POLICY_EVALUATION,
-        HUMAN_REVIEW,
+    ]
+    assert [
+        event.event_type
+        for event in run.events
+        if event.stage == HUMAN_REVIEW
+    ] == [
+        WorkflowEventType.STAGE_ENTERED,
+        WorkflowEventType.REVIEW_REQUESTED,
+        WorkflowEventType.REVIEW_COMPLETED,
     ]
     assert run.events[-1].event_type == WorkflowEventType.RUN_COMPLETED
     assert run.output is not None
@@ -248,7 +319,6 @@ def test_langgraph_checkpointer_reconstructs_run():
         extractor=DefaultSignalExtractor(),
         matcher=DefaultProfileMatcher(),
         policy=DefaultDecisionPolicy(),
-        review_gate=PassthroughHumanReviewGate(),
     )
     initial = WorkflowGraphState.from_workflow_input(workflow, plan)
     config = {"configurable": {"thread_id": initial.workflow_id}}

@@ -2,9 +2,6 @@ from app.agents.contracts import (
     DecisionPolicy,
     DecisionPolicyInput,
     DecisionPolicyOutput,
-    HumanReviewGate,
-    HumanReviewGateInput,
-    HumanReviewGateOutput,
     ProfileMatcher,
     ProfileMatcherInput,
     ProfileMatcherOutput,
@@ -19,7 +16,12 @@ from app.agents.contracts import (
     WorkflowPlannerOutput,
 )
 from app.agents.decision_rules import DefaultDecisionPolicy
-from app.agents.human_review import PassthroughHumanReviewGate, RecordedHumanReviewGate
+from app.agents.human_review import (
+    HumanReviewInterrupt,
+    HumanReviewResume,
+    approve_escalation,
+    revise_escalation,
+)
 from app.agents.orchestration import DefaultWorkflowOrchestrator
 from app.agents.profile_matching import DefaultProfileMatcher
 from app.agents.signal_extraction import DefaultSignalExtractor, LLMSignalExtractor
@@ -41,13 +43,10 @@ __all__ = [
     "DefaultSignalExtractor",
     "DefaultWorkflowOrchestrator",
     "DefaultWorkflowPlanner",
-    "HumanReviewGate",
-    "HumanReviewGateInput",
-    "HumanReviewGateOutput",
+    "HumanReviewInterrupt",
+    "HumanReviewResume",
     "LLMSignalExtractor",
-    "PassthroughHumanReviewGate",
     "ProfileMatcher",
-    "RecordedHumanReviewGate",
     "ProfileMatcherInput",
     "ProfileMatcherOutput",
     "SignalExtractor",
@@ -59,9 +58,11 @@ __all__ = [
     "WorkflowPlanner",
     "WorkflowPlannerInput",
     "WorkflowPlannerOutput",
+    "approve_escalation",
     "create_agents",
     "default_agents",
     "evaluate_workflow",
     "llm_agents",
+    "revise_escalation",
     "run_workflow_evaluation",
 ]
