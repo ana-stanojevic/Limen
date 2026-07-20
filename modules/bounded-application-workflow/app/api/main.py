@@ -2,6 +2,7 @@ from fastapi import FastAPI
 
 from app.agents import WorkflowOrchestrator, WorkflowOrchestratorInput, create_agents
 from app.domain.models import WorkflowInput, WorkflowOutput
+from app.observability import instrument_app
 
 
 def create_app(*, orchestrator: WorkflowOrchestrator | None = None) -> FastAPI:
@@ -11,6 +12,7 @@ def create_app(*, orchestrator: WorkflowOrchestrator | None = None) -> FastAPI:
         description="Evaluate opportunities against a user profile.",
         version="0.1.0",
     )
+    instrument_app(app)
     workflow = orchestrator or create_agents()[-1]
 
     @app.get("/health")
